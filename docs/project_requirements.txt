@@ -1,0 +1,68 @@
+PROJECT-SPECIFIC REQUIREMENTS
+
+This document describes the functional and graphical requirements specific to the Claw Machine Arcade Game.
+
+---
+
+GAME FLOW
+
+* Initial menu with difficulty selection
+* Selection of the number of moving objects
+* Game starts after menu confirmation
+* Player can exit the game at any time using the ESC key
+
+---
+
+CLAW MECHANICS
+
+* Claw starts at the top-center of the screen
+* Free movement on the X and Y axes
+* Claw open and close animation
+* Grab attempt triggered by the SPACE key
+
+---
+
+OBJECT BEHAVIOR
+
+* Objects move continuously inside the machine
+* Object speed depends on selected difficulty
+* Number of objects depends on initial configuration
+* Objects remain inside machine boundaries
+
+---
+
+VIEW AND CAMERA
+
+* Default internal view of the claw machine
+* Viewport transformation triggered during grab action
+* Zoom or focus effect during claw closing animation
+
+---
+
+GRAPHICS IMPLEMENTATION
+
+* All game elements represented using polygons
+* Polygon filling using scanline algorithm
+* Support for per-vertex color gradients
+* Support for texture-mapped polygons
+
+---
+
+COLLISION AND INTERACTION
+
+* Detection of overlap between claw and objects
+* Successful grab attaches object to the claw
+* Failed grab returns the claw to its initial position
+
+---
+
+PERFORMANCE AND OPTIMIZATION
+
+* Matrix-based transformations applied to all objects
+* GPU acceleration for selected mathematical operations using CUDA
+* Rendering pipeline designed to minimize redundant computations
+
+---
+
+NOTES
+These requirements define the core mechanics and must be preserved throughout development.

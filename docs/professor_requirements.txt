@@ -1,0 +1,65 @@
+COURSE REQUIREMENTS CHECKLIST
+
+This document tracks the mandatory requirements defined by the Computer Graphics course and their implementation status within the project.
+
+---
+
+RASTERIZATION PRIMITIVES
+[ ] Line rasterization algorithm
+[ ] Circle rasterization algorithm
+[ ] Ellipse rasterization algorithm
+
+---
+
+REGION FILLING
+[ ] Flood Fill OR Boundary Fill (opening screen)
+[ ] Scanline polygon filling (game objects and environment)
+
+---
+
+GEOMETRIC TRANSFORMATIONS
+[ ] Translation
+[ ] Scaling
+[ ] Rotation
+
+---
+
+ANIMATION
+[ ] 2D animation (object motion and claw animation)
+
+---
+
+VIEWING PIPELINE
+[ ] World to Window transformation
+[ ] Window to Viewport transformation
+[ ] Viewport translation
+[ ] Viewport scaling (zoom)
+
+---
+
+CLIPPING
+[ ] Cohen–Sutherland line clipping algorithm
+
+---
+
+VISUAL FEATURES
+[ ] Per-vertex color gradients
+[ ] Texture mapping using image-to-matrix loading
+
+---
+
+INTERACTION
+[ ] Keyboard input
+[ ] Mouse input (optional)
+[ ] Interactive menu system
+
+---
+
+OPENING SCREEN
+[ ] Screen drawn using line, circle, and ellipse rasterization
+[ ] Filled using Flood Fill or Boundary Fill
+
+---
+
+NOTES
+This checklist is used internally by the team to ensure full compliance with the course requirements before submission.
