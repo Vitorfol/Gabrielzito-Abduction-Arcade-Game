@@ -53,22 +53,21 @@ All graphical primitives, transformations, and rendering logic are implemented m
 
 ## Implemented Computer Graphics Features
 
-### Rasterization Primitives
+### Rasterization Primitives - raster.py
 
-* Line rasterization
-* Circle rasterization
-* Ellipse rasterization
+* Line rasterization - Use drawLine(Superfice, points, board color)
+* Polygon rasterization - Use drawPolygon(Superfice, points, board color) 
 
-### Region Filling
+### Region Filling - raster.py
 
-* Flood Fill / Boundary Fill (opening screen)
-* Scanline polygon filling (game objects and environment)
+* Flood Fill / Boundary Fill (opening screen) 
+* Scanline polygon filling (game objects and environment) - Use paintPolygon(Superfice, points, color)
 
 ### Transformations
 
-* Translation
-* Scaling
-* Rotation
+* Translation - Use translate(Matrix, position x, position y)
+* Scaling - Use scale_transformation(Matrix, scale x, scale y)
+* Rotation - Use rotate(Matrix, angle)
 
 ### Rendering Pipeline
 
