@@ -14,13 +14,16 @@ class World:
         self.cable = Cable(self.ufo, self.claw)
 
         self.prizes = [
-            Prize(400, 450)
+            Prize(400, 450),
+            Prize(200, 450),
+            Prize(600, 450),
         ]
 
     def update(self, keys):
         self.handle_movement(keys)
         self.apply_limits()
         self.check_grabs()
+        self.update_prizes()
 
     def handle_movement(self, keys):
         if keys[pygame.K_LEFT]:
@@ -55,4 +58,13 @@ class World:
                 prize.x = self.claw.x
                 prize.y = self.claw.y + 20
 
-    
+    def update_prizes(self):
+        for prize in self.prizes:
+            prize.update(50, self.width - 50)
+
+            simple_grab(self.claw, prize)
+
+            if prize.captured:
+                prize.x = self.claw.x
+                prize.y = self.claw.y + 20
+  
