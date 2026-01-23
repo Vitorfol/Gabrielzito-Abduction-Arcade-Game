@@ -104,3 +104,70 @@ def paintPolygon(superficie, pontos, cor_preenchimento):
 
                 for x in range(x_inicio, x_fim + 1):
                     setPixel(superficie, x, y, cor_preenchimento)
+
+# =========================
+# Flood Fill (4-conectado)
+# =========================
+def flood_fill_iterativo(superficie, x, y, cor_preenchimento, cor_borda):
+    largura = superficie.get_width()
+    altura = superficie.get_height()
+
+    pilha = [(x, y)]
+
+    while pilha:
+        x, y = pilha.pop()
+
+        if not (0 <= x < largura and 0 <= y < altura):
+            continue
+
+        cor_atual = superficie.get_at((x, y))[:3]
+
+        if cor_atual == cor_borda or cor_atual == cor_preenchimento:
+            continue
+
+        setPixel(superficie, x, y, cor_preenchimento)
+
+        pilha.append((x + 1, y))
+        pilha.append((x - 1, y))
+        pilha.append((x, y + 1))
+        pilha.append((x, y - 1))
+
+
+# Adicione ao seu raster.py
+
+def draw_circle_points(surface, xc, yc, x, y, color):
+    # Espelha o ponto para os 8 octantes
+    surface.set_at((xc + x, yc + y), color)
+    surface.set_at((xc - x, yc + y), color)
+    surface.set_at((xc + x, yc - y), color)
+    surface.set_at((xc - x, yc - y), color)
+    surface.set_at((xc + y, yc + x), color)
+    surface.set_at((xc - y, yc + x), color)
+    surface.set_at((xc + y, yc - x), color)
+    surface.set_at((xc - y, yc - x), color)
+
+def draw_circle(surface, center, radius, color):
+    """
+    Desenha um círculo usando o Algoritmo do Ponto Médio (equivalente ao Bresenham).
+    """
+    xc, yc = center
+    x = 0
+    y = radius
+    d = 1 - radius  # Variável de decisão inicial (para inteiros)
+
+    draw_circle_points(surface, xc, yc, x, y, color)
+
+    while x < y:
+        if d < 0:
+            # Escolhe o pixel a Leste
+            d = d + 2 * x + 3
+        else:
+            # Escolhe o pixel a Sudeste
+            d = d + 2 * (x - y) + 5
+            y -= 1
+        x += 1
+        draw_circle_points(surface, xc, yc, x, y, color)
+
+def draw_ellipse(surface, center, rx, ry, color):
+    # Implementar Algoritmo de Ponto Médio para Elipse (Ou bresenham, circulo foi implementado com bresenham)
+    pass
