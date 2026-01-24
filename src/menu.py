@@ -1,0 +1,314 @@
+"""
+Sistema de menu interativo para o Claw Machine Game.
+Inclui navegação por teclado, seleção de dificuldade e animações nos cantos.
+"""
+import pygame
+import math
+from raster import drawPolygon, paintPolygon
+from transformations import rotation, scale, multiply_matrices, apply_matrix_to_point
+from scenes.claw_machine_scene import ClawMachineScene
+from constants import *
+
+# Inicializar mixer de áudio
+pygame.mixer.init()
+
+
+class RotatingBox:
+    """Bounding box animada que rotaciona e escala nos cantos da tela"""
+    
+    def __init__(self, x, y, size=ROTATING_BOX_SIZE):
+        self.center_x = x
+        self.center_y = y
+        self.base_size = size
+        
+        # Estado da animação
+        self.rotation_angle = 0
+        self.scale_factor = 1.0
+        self.scale_direction = 1
+        
+        # Velocidades
+        self.rotation_speed = ROTATION_SPEED
+        self.scale_speed = SCALE_SPEED
+        self.min_scale = SCALE_MIN
+        self.max_scale = SCALE_MAX
+        
+        # Cor da box
+        self.color = COLOR_BOX
+        self.border_color = COLOR_BOX_BORDER
+        
+    def update(self):
+        """Atualiza animação de rotação e escala"""
+        # Rotação contínua
+        self.rotation_angle += self.rotation_speed
+        if self.rotation_angle >= 360:
+            self.rotation_angle -= 360
+            
+        # Escala pulsante (aumenta e diminui)
+        self.scale_factor += self.scale_speed * self.scale_direction
+        
+        if self.scale_factor >= self.max_scale:
+            self.scale_factor = self.max_scale
+            self.scale_direction = -1
+        elif self.scale_factor <= self.min_scale:
+            self.scale_factor = self.min_scale
+            self.scale_direction = 1
+    
+    def render(self, screen):
+        """Renderiza a box com transformações aplicadas"""
+        # Vértices originais da box (quadrado centrado na origem)
+        half_size = self.base_size / 2
+        vertices = [
+            (-half_size, -half_size),
+            (half_size, -half_size),
+            (half_size, half_size),
+            (-half_size, half_size)
+        ]
+        
+        # Aplicar transformações: escala -> rotação -> translação
+        scale_matrix = scale(self.scale_factor, self.scale_factor)
+        rot_matrix = rotation(math.radians(self.rotation_angle))
+        
+        # Combinar transformações (escala primeiro, depois rotação)
+        transform = multiply_matrices(rot_matrix, scale_matrix)
+        
+        # Aplicar às vertices
+        transformed = []
+        for x, y in vertices:
+            tx, ty = apply_matrix_to_point((x, y), transform)
+            # Transladar para a posição final
+            transformed.append((int(tx + self.center_x), int(ty + self.center_y)))
+        
+        # Renderizar
+        paintPolygon(screen, transformed, self.color)
+        drawPolygon(screen, transformed, self.border_color)
+
+
+class DifficultySelector:
+    """Submenu de seleção de dificuldade com navegação horizontal"""
+    
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.difficulties = ["EASY", "NORMAL", "HARD"]
+        self.selected_index = 1  # Começa em NORMAL
+        
+        # Layout
+        self.spacing = MENU_DIFFICULTY_SPACING
+        self.arrow_size = MENU_ARROW_SIZE
+        
+        # Cores
+        self.text_color = COLOR_TEXT
+        self.selected_color = COLOR_TEXT_SELECTED
+        self.arrow_color = COLOR_ARROW
+        
+    def handle_input(self, event):
+        """Processa input de setas horizontais"""
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_LEFT:
+                self.selected_index = max(0, self.selected_index - 1)
+                return True
+            elif event.key == pygame.K_RIGHT:
+                self.selected_index = min(len(self.difficulties) - 1, self.selected_index + 1)
+                return True
+        return False
+    
+    def get_selected_difficulty(self):
+        """Retorna a dificuldade selecionada"""
+        return self.difficulties[self.selected_index]
+    
+    def render(self, screen, font):
+        """Renderiza o seletor de dificuldade centralizado"""
+        # Calcular largura total para centralizar
+        total_width = (len(self.difficulties) - 1) * self.spacing
+        start_x = self.x - total_width // 2
+        
+        # Renderizar cada opção (todas visíveis, só a selecionada em verde)
+        for i, difficulty in enumerate(self.difficulties):
+            color = self.selected_color if i == self.selected_index else self.text_color
+            text_surf = font.render(difficulty, True, color)
+            text_rect = text_surf.get_rect(center=(start_x + i * self.spacing, self.y))
+            screen.blit(text_surf, text_rect)
+
+
+class Menu:
+    """Menu principal com navegação e animações"""
+    
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+        
+        # Cenário de fundo
+        self.scene = ClawMachineScene(width, height)
+        
+        # Opções do menu
+        self.options = ["JOGAR", "DIFICULDADE", "EXPLICACAO"]
+        self.selected_index = 0
+        
+        # Estado do menu
+        self.in_difficulty_menu = False
+        self.difficulty_selector = DifficultySelector(width // 2, height // 2 + 80)
+        
+        # Layout
+        self.option_spacing = MENU_OPTION_SPACING
+        self.start_y = height // 2 + MENU_START_Y_OFFSET
+        
+        # Cores
+        self.text_color = COLOR_TEXT
+        self.selected_color = COLOR_TEXT_SELECTED
+        self.title_color = COLOR_TITLE
+        
+        # Font
+        self.font = pygame.font.Font(None, FONT_SIZE_MEDIUM)
+        self.title_font = pygame.font.Font(None, FONT_SIZE_LARGE)
+        
+        # Boxes animadas nos cantos
+        margin = ROTATING_BOX_MARGIN
+        self.rotating_boxes = [
+            RotatingBox(margin, margin),                          # Superior esquerdo
+            RotatingBox(width - margin, margin),                  # Superior direito
+            RotatingBox(margin, height - margin),                 # Inferior esquerdo
+            RotatingBox(width - margin, height - margin)          # Inferior direito
+        ]
+        
+        # Transição suave
+        self.transition_alpha = 0
+        self.transitioning = False
+        self.transition_speed = TRANSITION_SPEED
+        self.transition_complete = False
+        
+    def handle_input(self, event):
+        """Processa input do teclado"""
+        if self.transitioning:
+            return None
+            
+        # Se estamos no submenu de dificuldade
+        if self.in_difficulty_menu:
+            if self.difficulty_selector.handle_input(event):
+                return None
+            
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN or event.key == pygame.K_ESCAPE:
+                    self.in_difficulty_menu = False
+                    return None
+        else:
+            # Menu principal
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_UP:
+                    self.selected_index = (self.selected_index - 1) % len(self.options)
+                elif event.key == pygame.K_DOWN:
+                    self.selected_index = (self.selected_index + 1) % len(self.options)
+                elif event.key == pygame.K_RETURN:
+                    return self._handle_selection()
+        
+        return None
+    
+    def _handle_selection(self):
+        """Processa a seleção de uma opção do menu"""
+        selected_option = self.options[self.selected_index]
+        
+        if selected_option == "JOGAR":
+            # Tocar áudio antes da transição
+            self._play_start_audio()
+            # Iniciar transição para o jogo
+            self.start_transition()
+            return "PLAY"
+        elif selected_option == "DIFICULDADE":
+            # Abrir submenu de dificuldade (agora LEFT/RIGHT funcionam)
+            self.in_difficulty_menu = True
+            return None
+        elif selected_option == "EXPLICACAO":
+            return "EXPLANATION"
+        
+        return None
+    
+    def _play_start_audio(self):
+        """TODO"""
+       
+    
+    def start_transition(self):
+        """Inicia animação de transição"""
+        self.transitioning = True
+        self.transition_alpha = 0
+        self.transition_complete = False
+    
+    def update(self):
+        """Atualiza estado do menu e animações"""
+        # Atualizar boxes rotativas
+        for box in self.rotating_boxes:
+            box.update()
+        
+        # Atualizar transição
+        if self.transitioning:
+            self.transition_alpha += self.transition_speed
+            if self.transition_alpha >= 255:
+                self.transition_alpha = 255
+                self.transition_complete = True
+    
+    def is_transition_complete(self):
+        """Retorna True quando a transição está completa"""
+        return self.transition_complete
+    
+    def get_selected_difficulty(self):
+        """Retorna a dificuldade selecionada"""
+        return self.difficulty_selector.get_selected_difficulty()
+    
+    def render(self, screen):
+        """Renderiza o menu completo"""
+        # Renderizar cenário de fundo
+        self.scene.render(screen)
+        
+        # Renderizar boxes animadas nos cantos
+        for box in self.rotating_boxes:
+            box.render(screen)
+        
+        # Título
+        title_text = self.title_font.render("GABRIELZITO MACHINE", True, self.title_color)
+        title_rect = title_text.get_rect(center=(self.width // 2, 80))
+        screen.blit(title_text, title_rect)
+        
+        if self.in_difficulty_menu:
+            # Renderizar submenu de dificuldade
+            self._render_difficulty_menu(screen)
+        else:
+            # Renderizar opções do menu principal
+            self._render_main_menu(screen)
+        
+        # Renderizar overlay de transição
+        if self.transitioning:
+            self._render_transition(screen)
+    
+    def _render_main_menu(self, screen):
+        """Renderiza as opções do menu principal"""
+        for i, option in enumerate(self.options):
+            color = self.selected_color if i == self.selected_index else self.text_color
+            text_surf = self.font.render(option, True, color)
+            text_rect = text_surf.get_rect(center=(self.width // 2, self.start_y + i * self.option_spacing))
+            screen.blit(text_surf, text_rect)
+            
+            # Indicador de seleção (retângulo ao redor)
+            if i == self.selected_index:
+                padding = 10
+                rect_poly = [
+                    (text_rect.left - padding, text_rect.top - padding),
+                    (text_rect.right + padding, text_rect.top - padding),
+                    (text_rect.right + padding, text_rect.bottom + padding),
+                    (text_rect.left - padding, text_rect.bottom + padding)
+                ]
+                drawPolygon(screen, rect_poly, self.selected_color)
+    
+    def _render_difficulty_menu(self, screen):
+        """Renderiza o submenu de seleção de dificuldade"""
+        # Título do submenu
+        subtitle = self.font.render("SELECIONE A DIFICULDADE", True, self.title_color)
+        subtitle_rect = subtitle.get_rect(center=(self.width // 2, self.height // 2 - 50))
+        screen.blit(subtitle, subtitle_rect)
+        
+        # Renderizar seletor
+        self.difficulty_selector.render(screen, self.font)
+    
+    def _render_transition(self, screen):
+        """Renderiza overlay de transição fade to black"""
+        overlay = pygame.Surface((self.width, self.height))
+        overlay.fill(COLOR_TRANSITION)
+        overlay.set_alpha(self.transition_alpha)
+        screen.blit(overlay, (0, 0))

@@ -1,4 +1,11 @@
-import pygame
+
+# =========================
+# Converte retângulo (x, y, w, h) para lista de vértices de polígono.
+# =========================
+def rect_to_polygon(rect):
+    x, y, w, h = rect
+    return [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
+
 
 def setPixel(superficie, x, y, cor):
     if 0 <= x < superficie.get_width() and 0 <= y < superficie.get_height():

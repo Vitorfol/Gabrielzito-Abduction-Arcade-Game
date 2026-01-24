@@ -1,68 +1,81 @@
+"""
+Ponto de entrada principal do Claw Machine Game.
+Gerencia estados do jogo (Menu, Jogando, Explicação).
+"""
 import pygame
-from raster import drawPolygon, paintPolygon
-from entities.world import World
+from menu import Menu
+from core.game_loop import GameLoop
+from enums.gamestate import GameState
+from constants import *
 
 pygame.init()
 
-WIDTH, HEIGHT = 800, 600
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("Claw Machine Game")
 clock = pygame.time.Clock()
 
-
-def rect_to_polygon(rect):
-    x, y, w, h = rect
-    return [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
-
-
-world = World(WIDTH, HEIGHT)
+# Sistema de estados
+current_state = GameState.MENU
+menu = Menu(SCREEN_WIDTH, SCREEN_HEIGHT)
+game_loop = None
 
 running = True
 while running:
-    clock.tick(60)
+    clock.tick(TARGET_FPS)
 
+    # ===== PROCESSAMENTO DE EVENTOS =====
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
 
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE:
-                world.claw.is_closed = not world.claw.is_closed
+        # Estado: MENU
+        if current_state == GameState.MENU:
+            action = menu.handle_input(event)
+            
+            if action == "EXPLANATION":
+                current_state = GameState.EXPLANATION
+        
+        # Estado: JOGANDO
+        elif current_state == GameState.MOVE:
+            action = game_loop.handle_input(event)
+            
+            if action == "BACK_TO_MENU":
+                current_state = GameState.MENU
+                menu = Menu(SCREEN_WIDTH, SCREEN_HEIGHT)  # Reiniciar menu
+                game_loop = None
+        
+        # Estado: EXPLICAÇÃO
+        elif current_state == GameState.EXPLANATION:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE or event.key == pygame.K_RETURN:
+                    current_state = GameState.MENU
 
-    keys = pygame.key.get_pressed()
-    world.update(keys)
+    # ===== ATUALIZAÇÃO =====
+    if current_state == GameState.MENU:
+        menu.update()
+        
+        # Verificar se transição do menu completou
+        if menu.is_transition_complete():
+            selected_difficulty = menu.get_selected_difficulty()
+            game_loop = GameLoop(SCREEN_WIDTH, SCREEN_HEIGHT, selected_difficulty)
+            current_state = GameState.MOVE
+    
+    elif current_state == GameState.MOVE:
+        keys = pygame.key.get_pressed()
+        game_loop.update(keys)
 
-    screen.fill((20, 20, 30))
-
-    # UFO
-    poly = rect_to_polygon(world.ufo.get_rect())
-    paintPolygon(screen, poly, (180, 180, 255))
-    drawPolygon(screen, poly, (255, 255, 255))
-
-    # Cable
-    poly = rect_to_polygon(world.cable.get_rect())
-    paintPolygon(screen, poly, (200, 200, 200))
-
-    # Claw
-    poly = rect_to_polygon(world.claw.get_rect())
-    color = (255, 0, 0) if world.claw.is_closed else (0, 255, 0)
-    paintPolygon(screen, poly, color)
-    drawPolygon(screen, poly, (255, 255, 255))
-
-    # Hitbox (debug)
-    poly = rect_to_polygon(world.claw.get_grab_hitbox())
-    drawPolygon(screen, poly, (255, 255, 0))
-
-    # Prize
-    for prize in world.prizes:
-        if not prize.captured:
-            poly = rect_to_polygon((
-                prize.x - prize.size // 2,
-                prize.y - prize.size // 2,
-                prize.size,
-                prize.size
-            ))
-            paintPolygon(screen, poly, (255, 200, 0))
-            drawPolygon(screen, poly, (255, 255, 255))
+    # ===== RENDERIZAÇÃO =====
+    if current_state == GameState.MENU:
+        menu.render(screen)
+    
+    elif current_state == GameState.EXPLANATION:
+        screen.fill(COLOR_BG_DARK)
+        font = pygame.font.Font(None, FONT_SIZE_MEDIUM)
+        text = font.render("EXPLICACAO - Pressione ESC para voltar", True, COLOR_TEXT)
+        screen.blit(text, text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)))
+    
+    elif current_state == GameState.MOVE:
+        game_loop.render(screen)
 
     pygame.display.flip()
 

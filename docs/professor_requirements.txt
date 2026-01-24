@@ -5,27 +5,27 @@ This document tracks the mandatory requirements defined by the Computer Graphics
 ---
 
 RASTERIZATION PRIMITIVES
-[ ] Line rasterization algorithm
-[ ] Circle rasterization algorithm
+[X] Line rasterization algorithm
+[X] Circle rasterization algorithm
 [ ] Ellipse rasterization algorithm
 
 ---
 
 REGION FILLING
-[ ] Flood Fill OR Boundary Fill (opening screen)
-[ ] Scanline polygon filling (game objects and environment)
+[X] Flood Fill OR Boundary Fill (opening screen)
+[X] Scanline polygon filling (game objects and environment)
 
 ---
 
 GEOMETRIC TRANSFORMATIONS
-[ ] Translation
-[ ] Scaling
-[ ] Rotation
+[X] Translation
+[X] Scaling
+[X] Rotation
 
 ---
 
 ANIMATION
-[ ] 2D animation (object motion and claw animation)
+[X] 2D animation (object motion and claw animation)
 
 ---
 
@@ -49,9 +49,9 @@ VISUAL FEATURES
 ---
 
 INTERACTION
-[ ] Keyboard input
-[ ] Mouse input (optional)
-[ ] Interactive menu system
+[X] Keyboard input
+[] Mouse input (optional)
+[X] Interactive menu system
 
 ---
 

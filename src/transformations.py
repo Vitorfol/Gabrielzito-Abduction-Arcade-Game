@@ -44,6 +44,25 @@ def multiply_matrices(A, B):
     
     return resultado
 
+
+def apply_matrix_to_point(point, matrix):
+    """
+    Aplica matriz de transformação 3x3 a um ponto 2D.
+    
+    Args:
+        point: Tupla (x, y)
+        matrix: Matriz 3x3 de transformação homogênea
+    
+    Returns:
+        Tupla (new_x, new_y) com as coordenadas transformadas
+    """
+    x, y = point
+    # Vetor homogêneo [x, y, 1]
+    new_x = matrix[0][0] * x + matrix[0][1] * y + matrix[0][2]
+    new_y = matrix[1][0] * x + matrix[1][1] * y + matrix[1][2]
+    return (new_x, new_y)
+
+
 def rotate(A, theta):
     R = rotation(theta)
 
