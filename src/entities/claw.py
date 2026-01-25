@@ -3,38 +3,44 @@ class Claw:
         self.ufo = ufo
         self.y = ufo.y + 50
         self.x = x
-
-        # dimensões visuais
+        
+        # Dimensões visuais
         self.width = 40
         self.height = 60
-
-        # dimensões da área de captura
         self.grab_width = 20
         self.grab_height = 15
 
-        self.speed = 4
+        # Física
+        self.velocity_y = 0
+        self.gravity = 0.2       # acelera para baixo
+        self.motor_speed = 4     # aceleraçao constante
         self.is_closed = False
 
     def get_rect(self):
-        return (self.x - self.width // 2,
-                self.y - self.height // 2,
+        return (int(self.x - self.width // 2),
+                int(self.y - self.height // 2),
                 self.width,
                 self.height)
 
     def get_grab_hitbox(self):
-        return (self.x - self.grab_width // 2,
-                self.y - self.grab_height // 2,
+        return (int(self.x - self.grab_width // 2),
+                int(self.y - self.grab_height // 2),
                 self.grab_width,
                 self.grab_height)
 
-    def move(self, dx):
-        self.x += dx
-
     def drop(self):
-        self.y += self.speed
+        """Apply gravity"""
+        self.velocity_y += self.gravity
+        self.y += self.velocity_y
 
     def lift(self):
-        self.y -= self.speed
+        """Apply motor force (constant speed)"""
+        self.velocity_y = -self.motor_speed
+        self.y += self.velocity_y
+
+    def stop(self):
+        """Kill velocity (collision or stop)"""
+        self.velocity_y = 0
 
     def close(self):
         self.is_closed = True

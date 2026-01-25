@@ -4,8 +4,18 @@ from entities.cable import Cable
 from entities.ufo import UFO
 from entities.prize import Prize
 from entities.claw import Claw
+from enums.gamestate import GameState
+
 class World:
+    """
+    Gerencia o estado global do jogo, contendo todas as entidades (UFO, Garra, Prêmios)
+    e a lógica principal de interação e atualização física.
+    """
     def __init__(self, width, height):
+        """
+        Inicializa o mundo do jogo com dimensões específicas e instancia
+        os objetos iniciais e o estado da máquina de estados.
+        """
         self.width = width
         self.height = height
 
@@ -13,58 +23,104 @@ class World:
         self.claw = Claw(self.ufo.x, self.ufo.y + 50, self.ufo)
         self.cable = Cable(self.ufo, self.claw)
 
+        self.state = GameState.MOVE 
+
         self.prizes = [
             Prize(400, 450),
             Prize(200, 450),
             Prize(600, 450),
         ]
 
+    def handle_input_trigger(self):
+        """
+        Gerencia a reação ao botão de ação (Espaço).
+        Controla as transições de estado: de Mover para Descer, e de Descer para Agarrar.
+        """
+        # Se estiver movendo, inicia a descida
+        if self.state == GameState.MOVE:
+            self.state = GameState.DROP
+            self.claw.open()
+        
+        # Se já estiver descendo, tenta agarrar imediatamente
+        elif self.state == GameState.DROP:
+            self.state = GameState.GRAB
+
     def update(self, keys):
-        self.handle_movement(keys)
+        """
+        Loop principal de lógica. Atualiza física, gerencia a máquina de estados
+        (Move, Drop, Grab, Lift) e sincroniza posições das entidades.
+        """
+        self.ufo.update_physics()
+
+        # Lógica de Estados
+        match self.state:
+            case GameState.MOVE:
+                self.handle_lateral_movement(keys)
+
+            case GameState.DROP:
+                self.claw.drop()
+                if self.claw.y >= self.height - 80:
+                    self.claw.stop() # Zera a velocidade vertical
+                    self.state = GameState.LIFT
+
+            case GameState.GRAB:
+                self.claw.close()
+                self.check_grabs()
+                self.state = GameState.LIFT
+
+            case GameState.LIFT:
+                self.claw.lift()
+                # Se voltou ao topo, muda para MOVE
+                if self.claw.y <= self.ufo.y + 50:
+                    self.claw.y = self.ufo.y + 50 # Garante a posição exata (snap)
+                    self.claw.stop()  # para o impulso de subida
+                    self.state = GameState.MOVE
+
+        # Atualizações Gerais
         self.apply_limits()
-        self.check_grabs()
         self.update_prizes()
 
-    def handle_movement(self, keys):
+        # Mantém a garra alinhada ao UFO no eixo X
+        self.claw.x = self.ufo.x
+
+    def handle_lateral_movement(self, keys):
+        """
+        Verifica as teclas pressionadas (Esquerda/Direita) e aplica forças
+        ao UFO, respeitando a física inercial.
+        """
         if keys[pygame.K_LEFT]:
-            self.ufo.x -= self.ufo.speed
-            self.claw.x -= self.ufo.speed
-
+            self.ufo.apply_force(-1) 
         if keys[pygame.K_RIGHT]:
-            self.ufo.x += self.ufo.speed
-            self.claw.x += self.ufo.speed
-
-        if keys[pygame.K_DOWN]:
-            self.claw.drop()
-
-        if keys[pygame.K_UP]:
-            self.claw.lift()
+            self.ufo.apply_force(1)
 
     def apply_limits(self):
+        """
+        Restringe a posição horizontal do UFO para garantir que ele não
+        saia dos limites laterais da janela do jogo.
+        """
         self.ufo.x = max(
             self.ufo.width // 2,
             min(self.width - self.ufo.width // 2, self.ufo.x)
         )
 
-        self.claw.x = self.ufo.x
-        self.claw.y = max(self.ufo.y + 40, self.claw.y)
-        self.claw.y = min(self.height - 50, self.claw.y)
-
     def check_grabs(self):
+        """
+        Percorre a lista de prêmios e verifica colisões com a garra
+        para determinar se algum objeto foi capturado.
+        """
         for prize in self.prizes:
+            # simple_grab já verifica internamente se a garra está fechada
             simple_grab(self.claw, prize)
-
-            if prize.captured:
-                prize.x = self.claw.x
-                prize.y = self.claw.y + 20
 
     def update_prizes(self):
+        """
+        Atualiza a lógica de cada prêmio. Se um prêmio estiver capturado,
+        sua posição é travada na posição da garra.
+        """
         for prize in self.prizes:
             prize.update(50, self.width - 50)
-
-            simple_grab(self.claw, prize)
-
+            
+            # Se o premio for capturado, ele acompanha a posição da garra
             if prize.captured:
                 prize.x = self.claw.x
                 prize.y = self.claw.y + 20
-  
