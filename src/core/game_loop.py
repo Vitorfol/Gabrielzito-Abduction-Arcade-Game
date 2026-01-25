@@ -32,6 +32,10 @@ class GameLoop:
         # Instancia o 'Modelo' do jogo (Física e Estado)
         self.world = World(width, height)
         
+        # Inicia música de fundo
+        from audio_manager import play_soundtrack
+        play_soundtrack(volume=0.5)
+        
         # Flags de Debug Visual
         self.show_hitbox = True
         
@@ -77,10 +81,17 @@ class GameLoop:
         """
         screen.fill(const.COLOR_BG_DARK)
         
-        # UFO (Corpo + Borda)
-        poly = rect_to_polygon(self.world.ufo.get_rect())
-        paintPolygon(screen, poly, const.COLOR_UFO)
-        drawPolygon(screen, poly, const.COLOR_UFO_BORDER)
+        # UFO (Corpo + Borda) - ELIPSE
+        from raster import draw_ellipse, paint_ellipse
+        ufo_hitbox = self.world.ufo.get_ellipse_hitbox()
+        ufo_center = ufo_hitbox['center']
+        ufo_rx = ufo_hitbox['rx']
+        ufo_ry = ufo_hitbox['ry']
+        
+        # Preenche elipse
+        paint_ellipse(screen, ufo_center, ufo_rx, ufo_ry, const.COLOR_UFO)
+        # Desenha borda
+        draw_ellipse(screen, ufo_center, ufo_rx, ufo_ry, const.COLOR_UFO_BORDER)
 
         # Cabo
         poly = rect_to_polygon(self.world.cable.get_rect())

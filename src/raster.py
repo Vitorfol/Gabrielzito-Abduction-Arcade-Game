@@ -264,3 +264,44 @@ def draw_ellipse(surface, center, rx, ry, color):
             p2 += rx2 - py + px
         
         draw_ellipse_points(surface, xc, yc, x, y, color)
+
+
+def paint_ellipse(surface, center, rx, ry, fill_color):
+    """
+    Preenche uma elipse usando scanline fill.
+    
+    Parâmetros:
+    - surface: superfície Pygame
+    - center: tupla (xc, yc) com coordenadas do centro
+    - rx: raio no eixo X
+    - ry: raio no eixo Y
+    - fill_color: cor do preenchimento (R, G, B)
+    
+    Algoritmo:
+        Para cada scanline y de (yc - ry) até (yc + ry):
+            Calcula interseções x usando equação da elipse
+            Preenche pixels entre as interseções
+    """
+    xc, yc = center
+    
+    # Equação da elipse: ((x-xc)/rx)² + ((y-yc)/ry)² = 1
+    # Resolvendo para x: x = xc ± rx * sqrt(1 - ((y-yc)/ry)²)
+    
+    for y in range(yc - ry, yc + ry + 1):
+        # Calcula distância y normalizada
+        dy = (y - yc) / ry if ry > 0 else 0
+        
+        # Verifica se está dentro dos limites da elipse
+        if dy * dy > 1:
+            continue
+        
+        # Calcula interseções x
+        dx = (1 - dy * dy) ** 0.5  # sqrt(1 - dy²)
+        x_offset = int(rx * dx)
+        
+        # Preenche scanline de (xc - x_offset) até (xc + x_offset)
+        x_start = xc - x_offset
+        x_end = xc + x_offset
+        
+        for x in range(x_start, x_end + 1):
+            setPixel(surface, x, y, fill_color)

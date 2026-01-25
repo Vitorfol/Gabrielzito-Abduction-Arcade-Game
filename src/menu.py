@@ -289,7 +289,9 @@ class Menu:
         return None
     
     def _play_start_audio(self):
-        """TODO"""
+        """Toca efeito sonoro ao iniciar o jogo"""
+        from audio_manager import play_audio
+        play_audio("homens-verde", volume=0.8)
        
     
     def start_transition(self):
