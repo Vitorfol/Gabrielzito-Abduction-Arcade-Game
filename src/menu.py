@@ -4,7 +4,7 @@ Inclui navegação por teclado, seleção de dificuldade e animações nos canto
 """
 import pygame
 import math
-from raster import drawPolygon, paintPolygon
+from raster import drawPolygon, paintPolygon, draw_circle, flood_fill_iterativo
 from transformations import rotation, scale, multiply_matrices, apply_matrix_to_point
 from scenes.claw_machine_scene import ClawMachineScene
 from constants import *
@@ -81,6 +81,70 @@ class RotatingBox:
         # Renderizar
         paintPolygon(screen, transformed, self.color)
         drawPolygon(screen, transformed, self.border_color)
+
+
+class TargetCircle:
+    """Círculo tipo 'alvo' com anéis concêntricos que pulsa (escala)"""
+    
+    def __init__(self, x, y, base_radius=35):
+        self.center_x = x
+        self.center_y = y
+        self.base_radius = base_radius
+        
+        # Estado da animação (apenas escala, sem rotação)
+        self.scale_factor = 1.0
+        self.scale_direction = 1
+        
+        # Velocidades (mesmas do RotatingBox)
+        self.scale_speed = SCALE_SPEED
+        self.min_scale = SCALE_MIN
+        self.max_scale = SCALE_MAX
+        
+        # Cores dos anéis concêntricos (alvo tipo tiro ao alvo)
+        self.ring_colors = [
+            (255, 50, 50),   # Vermelho (centro)
+            (255, 255, 255), # Branco
+            (255, 50, 50),   # Vermelho (externo)
+        ]
+        self.border_color = (200, 200, 200)  # Cinza para bordas
+        
+    def update(self):
+        """Atualiza animação de escala pulsante"""
+        self.scale_factor += self.scale_speed * self.scale_direction
+        
+        if self.scale_factor >= self.max_scale:
+            self.scale_factor = self.max_scale
+            self.scale_direction = -1
+        elif self.scale_factor <= self.min_scale:
+            self.scale_factor = self.min_scale
+            self.scale_direction = 1
+    
+    def render(self, screen):
+        """Renderiza o alvo com 3 anéis concêntricos"""
+        # Calcula raios dos 3 anéis com escala aplicada
+        radii = [
+            int(self.base_radius * self.scale_factor),         # Externo
+            int(self.base_radius * 0.66 * self.scale_factor),  # Médio
+            int(self.base_radius * 0.33 * self.scale_factor),  # Centro
+        ]
+        
+        # Desenha do maior para o menor (de fora para dentro)
+        for i, radius in enumerate(radii):
+            if radius > 0:
+                # Desenha borda do círculo
+                draw_circle(screen, (self.center_x, self.center_y), 
+                           radius, self.border_color)
+                
+                # Preenche com flood fill (usa cor do anel correspondente)
+                # Inverte índice: anel externo usa ring_colors[2], centro usa [0]
+                fill_color = self.ring_colors[2 - i]
+                
+                # Flood fill a partir do centro de cada anel
+                try:
+                    flood_fill_iterativo(screen, self.center_x, self.center_y, 
+                                       fill_color, self.border_color)
+                except:
+                    pass  # Evita crash se flood fill falhar
 
 
 class DifficultySelector:
@@ -167,8 +231,11 @@ class Menu:
             RotatingBox(margin, margin),                          # Superior esquerdo
             RotatingBox(width - margin, margin),                  # Superior direito
             RotatingBox(margin, height - margin),                 # Inferior esquerdo
-            RotatingBox(width - margin, height - margin)          # Inferior direito
+            RotatingBox(width - margin - 110, height - margin)     # Inferior direito (MOVIDO)
         ]
+        
+        # Adiciona círculo alvo no canto inferior direito (posição original do polígono)
+        self.target_circle = TargetCircle(width - margin, height - margin, base_radius=35)
         
         # Transição suave
         self.transition_alpha = 0
@@ -237,6 +304,9 @@ class Menu:
         for box in self.rotating_boxes:
             box.update()
         
+        # Atualizar círculo alvo
+        self.target_circle.update()
+        
         # Atualizar transição
         if self.transitioning:
             self.transition_alpha += self.transition_speed
@@ -260,6 +330,9 @@ class Menu:
         # Renderizar boxes animadas nos cantos
         for box in self.rotating_boxes:
             box.render(screen)
+        
+        # Renderizar círculo alvo
+        self.target_circle.render(screen)
         
         # Título
         title_text = self.title_font.render("GABRIELZITO MACHINE", True, self.title_color)
