@@ -60,6 +60,7 @@ def drawLine(superficie, x0, y0, x1, y1, cor):
 # Desenho do polígono
 # =========================
 def drawPolygon(superficie, pontos, cor_borda):
+    pontos = polygon_to_int(pontos)
     n = len(pontos)
     for i in range(n):
         x0, y0 = pontos[i]
@@ -71,6 +72,7 @@ def drawPolygon(superficie, pontos, cor_borda):
 # =========================
 def paintPolygon(superficie, pontos, cor_preenchimento):
     # Encontra Y mínimo e máximo
+    pontos = polygon_to_int(pontos)
     ys = [p[1] for p in pontos]
     y_min = min(ys)
     y_max = max(ys)
@@ -111,6 +113,9 @@ def paintPolygon(superficie, pontos, cor_preenchimento):
 
                 for x in range(x_inicio, x_fim + 1):
                     setPixel(superficie, x, y, cor_preenchimento)
+
+def polygon_to_int(poly):
+    return [(int(round(x)), int(round(y))) for x, y in poly]
 
 # =========================
 # Flood Fill (4-conectado)

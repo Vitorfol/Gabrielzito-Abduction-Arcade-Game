@@ -4,8 +4,15 @@ Contém a lógica de renderização e orquestração da atualização do jogo.
 """
 import pygame
 from raster import drawPolygon, paintPolygon, rect_to_polygon
+from transformations import multiply_matrices, multiply_matrix_vector
 from entities.world import World
 import constants as const
+from viewport_utils import viewport_window
+
+def inventory_position(index):
+    col = index % 4
+    row = index // 4
+    return (20 + col * 30, 20 + row * 30)
 
 class GameLoop:
     """
@@ -108,6 +115,9 @@ class GameLoop:
             poly = rect_to_polygon(self.world.claw.get_grab_hitbox())
             drawPolygon(screen, poly, const.COLOR_HITBOX_DEBUG)
 
+        inventory_window = (0, 0, 100, 100)   # espaço lógico do inventário
+        inventory_viewport = (600, 0, 800, 200)  # espaço na tela
+        VW_inventory = viewport_window(inventory_window, inventory_viewport)
         # Prêmios não capturados
         for prize in self.world.prizes:
             if not prize.captured:
@@ -119,3 +129,25 @@ class GameLoop:
                 ))
                 paintPolygon(screen, poly, const.COLOR_PRIZE)
                 drawPolygon(screen, poly, const.COLOR_PRIZE_BORDER)
+
+        captured = [p for p in self.world.prizes if p.captured]
+
+        for i, prize in enumerate(captured):
+            x, y = inventory_position(i)
+
+            poly = rect_to_polygon((
+                x - prize.size // 2,
+                y - prize.size // 2,
+                prize.size,
+                prize.size
+            ))
+
+            view_poly = []
+            for vx, vy in poly:
+                P = [vx, vy, 1]
+                P_tela = multiply_matrix_vector(VW_inventory, P)
+                view_poly.append((P_tela[0], P_tela[1]))
+
+            paintPolygon(screen, view_poly, const.COLOR_PRIZE)
+            drawPolygon(screen, view_poly, const.COLOR_PRIZE_BORDER)
+                

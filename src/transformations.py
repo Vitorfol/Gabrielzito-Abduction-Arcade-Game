@@ -81,6 +81,19 @@ def rotate(A, theta):
         )
     )
 
+def multiply_matrix_vector(M, V):
+    """
+    M: matriz 3x3
+    V: vetor [x, y, 1]
+    retorna: [x', y', w']
+    """
+    return [
+        M[0][0] * V[0] + M[0][1] * V[1] + M[0][2] * V[2],
+        M[1][0] * V[0] + M[1][1] * V[1] + M[1][2] * V[2],
+        M[2][0] * V[0] + M[2][1] * V[1] + M[2][2] * V[2],
+    ]
+
+
 
 def translate(A, tx, ty):
     T = translation(tx, ty)
