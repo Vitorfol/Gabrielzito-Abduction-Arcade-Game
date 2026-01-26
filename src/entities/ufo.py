@@ -35,3 +35,10 @@ class UFO:
         # Stop completely if very slow (prevents micro-sliding)
         if abs(self.velocity_x) < 0.1:
             self.velocity_x = 0
+    
+    def get_ellipse_hitbox(self):
+        cx = int(self.x)
+        cy = int(self.y)
+        rx = int(self.width // 2)
+        ry = int(self.height // 2)
+        return { 'center': (cx, cy), 'rx': rx, 'ry': ry }
