@@ -4,7 +4,7 @@ Inclui navegação por teclado, seleção de dificuldade e animações nos canto
 """
 import pygame
 import math
-from raster import drawPolygon, paintPolygon, draw_circle, flood_fill_iterativo
+from raster import drawPolygon, paintPolygon, draw_circle, flood_fill_iterativo, paintTexturedPolygon
 from transformations import rotation, scale, multiply_matrices, apply_matrix_to_point
 from scenes.claw_machine_scene import ClawMachineScene
 from constants import *
@@ -130,7 +130,6 @@ class TexturedBox:
     
     def render(self, pixel_array, screen_width, screen_height):
         """Renderiza a box texturizada com transformações aplicadas"""
-        from raster import paintTexturedPolygon
         
         # Vértices originais da box (quadrado centrado na origem)
         # UVs em coordenadas de textura absolutas (0 a tex_w, 0 a tex_h)
