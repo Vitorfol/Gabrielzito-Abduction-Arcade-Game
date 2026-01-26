@@ -4,4 +4,4 @@ class GameState:
     GRAB = 2        # tentativa de captura
     LIFT = 3        # subindo
     MENU = 4        # menu principal
-    EXPLANATION = 5 # tela de explicação
+    GUIA = 5        # tela de guia

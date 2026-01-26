@@ -8,9 +8,7 @@ from raster import drawPolygon, paintPolygon, draw_circle, flood_fill_iterativo
 from transformations import rotation, scale, multiply_matrices, apply_matrix_to_point
 from scenes.claw_machine_scene import ClawMachineScene
 from constants import *
-
-# Inicializar mixer de áudio
-pygame.mixer.init()
+from audio_manager import play_audio
 
 
 class RotatingBox:
@@ -147,6 +145,185 @@ class TargetCircle:
                     pass  # Evita crash se flood fill falhar
 
 
+class TexturedBox:
+    """Box texturizada que rotaciona e escala nos cantos da tela"""
+    
+    def __init__(self, x, y, texture_path, size=ROTATING_BOX_SIZE):
+        self.center_x = x
+        self.center_y = y
+        self.base_size = size
+        
+        # Carregar textura
+        self.texture_matrix, self.tex_w, self.tex_h = self._load_texture(texture_path)
+        
+        # Estado da animação
+        self.rotation_angle = 0
+        self.scale_factor = 1.0
+        self.scale_direction = 1
+        
+        # Velocidades
+        self.rotation_speed = ROTATION_SPEED
+        self.scale_speed = SCALE_SPEED
+        self.min_scale = SCALE_MIN
+        self.max_scale = SCALE_MAX
+    
+    def _load_texture(self, path):
+        """Carrega PNG e converte para matriz de textura"""
+        try:
+            surf = pygame.image.load(path)
+            w, h = surf.get_width(), surf.get_height()
+            matrix = []
+            for x in range(w):
+                col = []
+                for y in range(h):
+                    col.append(surf.get_at((x, y)))
+                matrix.append(col)
+            return matrix, w, h
+        except Exception as e:
+            # Retorna uma matriz 1x1 transparente como fallback
+            return [[(0, 0, 0, 0)]], 1, 1
+    
+    def update(self):
+        """Atualiza animação de rotação e escala"""
+        self.rotation_angle += self.rotation_speed
+        if self.rotation_angle >= 360:
+            self.rotation_angle -= 360
+            
+        self.scale_factor += self.scale_speed * self.scale_direction
+        
+        if self.scale_factor >= self.max_scale:
+            self.scale_factor = self.max_scale
+            self.scale_direction = -1
+        elif self.scale_factor <= self.min_scale:
+            self.scale_factor = self.min_scale
+            self.scale_direction = 1
+    
+    def render(self, pixel_array, screen_width, screen_height):
+        """Renderiza a box texturizada com transformações aplicadas"""
+        from raster import paintTexturedPolygon
+        
+        # Vértices originais da box (quadrado centrado na origem)
+        # UVs em coordenadas de textura absolutas (0 a tex_w, 0 a tex_h)
+        half_size = self.base_size / 2
+        vertices_local = [
+            (-half_size, -half_size, 0, 0),                      # top-left
+            (half_size, -half_size, self.tex_w, 0),              # top-right
+            (half_size, half_size, self.tex_w, self.tex_h),      # bottom-right
+            (-half_size, half_size, 0, self.tex_h)               # bottom-left
+        ]
+        
+        # Aplicar transformações: escala -> rotação -> translação
+        scale_matrix = scale(self.scale_factor, self.scale_factor)
+        rot_matrix = rotation(math.radians(self.rotation_angle))
+        transform = multiply_matrices(rot_matrix, scale_matrix)
+        
+        # Aplicar às vertices (mantém UV)
+        vertices_uv = []
+        for x, y, u, v in vertices_local:
+            tx, ty = apply_matrix_to_point((x, y), transform)
+            screen_x = int(tx + self.center_x)
+            screen_y = int(ty + self.center_y)
+            vertices_uv.append((screen_x, screen_y, u, v))
+        
+        # Renderizar texturizado (sem criar novo PixelArray)
+        paintTexturedPolygon(
+            pixel_array,
+            screen_width,
+            screen_height,
+            vertices_uv,
+            self.texture_matrix,
+            self.tex_w,
+            self.tex_h,
+            method='standard'
+        )
+
+
+class TexturedEllipse:
+    """Elipse texturizada que pulsa (apenas escala, sem rotação)"""
+    
+    def __init__(self, x, y, texture_path, base_rx=40, base_ry=20):
+        self.center_x = x
+        self.center_y = y
+        self.base_rx = base_rx
+        self.base_ry = base_ry
+        
+        # Carregar textura
+        self.texture_matrix, self.tex_w, self.tex_h = self._load_texture(texture_path)
+        
+        # Estado da animação (apenas escala)
+        self.scale_factor = 1.0
+        self.scale_direction = 1
+        
+        # Velocidades
+        self.scale_speed = SCALE_SPEED
+        self.min_scale = SCALE_MIN
+        self.max_scale = SCALE_MAX
+    
+    def _load_texture(self, path):
+        """Carrega PNG e converte para matriz de textura"""
+    def _load_texture(self, path):
+        """Carrega PNG e converte para matriz de textura"""
+        try:
+            surf = pygame.image.load(path)
+            w, h = surf.get_width(), surf.get_height()
+            matrix = []
+            for x in range(w):
+                col = []
+                for y in range(h):
+                    col.append(surf.get_at((x, y)))
+                matrix.append(col)
+            return matrix, w, h
+        except Exception as e:
+            # Retorna uma matriz 1x1 transparente como fallback
+            print(f"Error loading texture '{path}': {e}")
+            return [[(0, 0, 0, 0)]], 1, 1
+    
+    def update(self):
+        """Atualiza animação de escala pulsante"""
+        self.scale_factor += self.scale_speed * self.scale_direction
+        
+        if self.scale_factor >= self.max_scale:
+            self.scale_factor = self.max_scale
+            self.scale_direction = -1
+        elif self.scale_factor <= self.min_scale:
+            self.scale_factor = self.min_scale
+            self.scale_direction = 1
+    
+    def render(self, pixel_array, screen_width, screen_height):
+        """Renderiza elipse texturizada (aproximada por polígono)"""
+        from raster import paintTexturedPolygon
+        
+        # Aproximar elipse com polígono de 16 lados
+        num_segments = 16
+        vertices_uv = []
+        
+        rx = self.base_rx * self.scale_factor
+        ry = self.base_ry * self.scale_factor
+        
+        for i in range(num_segments):
+            angle = (2 * math.pi * i) / num_segments
+            x = self.center_x + rx * math.cos(angle)
+            y = self.center_y + ry * math.sin(angle)
+            
+            # UV mapping (coordenadas absolutas de textura)
+            u = (0.5 + 0.5 * math.cos(angle)) * self.tex_w
+            v = (0.5 + 0.5 * math.sin(angle)) * self.tex_h
+            
+            vertices_uv.append((int(x), int(y), u, v))
+        
+        # Renderizar texturizado (sem criar novo PixelArray)
+        paintTexturedPolygon(
+            pixel_array,
+            screen_width,
+            screen_height,
+            vertices_uv,
+            self.texture_matrix,
+            self.tex_w,
+            self.tex_h,
+            method='standard'
+        )
+
+
 class DifficultySelector:
     """Submenu de seleção de dificuldade com navegação horizontal"""
     
@@ -205,11 +382,12 @@ class Menu:
         self.scene = ClawMachineScene(width, height)
         
         # Opções do menu
-        self.options = ["JOGAR", "DIFICULDADE", "EXPLICACAO"]
+        self.options = ["JOGAR", "DIFICULDADE", "GUIA"]
         self.selected_index = 0
         
         # Estado do menu
         self.in_difficulty_menu = False
+        self.in_guia_menu = False
         self.difficulty_selector = DifficultySelector(width // 2, height // 2 + 80)
         
         # Layout
@@ -225,16 +403,16 @@ class Menu:
         self.font = pygame.font.Font(None, FONT_SIZE_MEDIUM)
         self.title_font = pygame.font.Font(None, FONT_SIZE_LARGE)
         
-        # Boxes animadas nos cantos
+        # Elementos texturizados nos cantos
         margin = ROTATING_BOX_MARGIN
-        self.rotating_boxes = [
-            RotatingBox(margin, margin),                          # Superior esquerdo
-            RotatingBox(width - margin, margin),                  # Superior direito
-            RotatingBox(margin, height - margin),                 # Inferior esquerdo
-            RotatingBox(width - margin - 110, height - margin)     # Inferior direito (MOVIDO)
+        self.corner_elements = [
+            TexturedBox(margin, margin, "../assets/mocking/gabriel-mocking4.png"),                    # Superior esquerdo
+            TexturedEllipse(width - margin, margin, "../assets/ufo.png", base_rx=40, base_ry=25),     # Superior direito (UFO)
+            TexturedBox(margin, height - margin, "../assets/gabriel-frente.png"),                     # Inferior esquerdo
+            TexturedBox(width - margin - 110, height - margin, "../assets/gabriel.png")               # Inferior direito (MOVIDO)
         ]
         
-        # Adiciona círculo alvo no canto inferior direito (posição original do polígono)
+        # Círculo alvo no canto inferior direito (posição original)
         self.target_circle = TargetCircle(width - margin, height - margin, base_radius=35)
         
         # Transição suave
@@ -248,9 +426,20 @@ class Menu:
         if self.transitioning:
             return None
             
+        # Se estamos no submenu de guia
+        if self.in_guia_menu:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN or event.key == pygame.K_ESCAPE:
+                    self.in_guia_menu = False
+                    return None
+            return None
+            
         # Se estamos no submenu de dificuldade
         if self.in_difficulty_menu:
             if self.difficulty_selector.handle_input(event):
+                # Debug: mostrar dificuldade selecionada
+                selected = self.difficulty_selector.get_selected_difficulty()
+                print(f"DEBUG: Dificuldade selecionada: {selected}")
                 return None
             
             if event.type == pygame.KEYDOWN:
@@ -283,14 +472,15 @@ class Menu:
             # Abrir submenu de dificuldade (agora LEFT/RIGHT funcionam)
             self.in_difficulty_menu = True
             return None
-        elif selected_option == "EXPLICACAO":
-            return "EXPLANATION"
+        elif selected_option == "GUIA":
+            # Abrir submenu de guia
+            self.in_guia_menu = True
+            return None
         
         return None
     
     def _play_start_audio(self):
         """Toca efeito sonoro ao iniciar o jogo"""
-        from audio_manager import play_audio
         play_audio("homens-verde", volume=0.8)
        
     
@@ -302,9 +492,9 @@ class Menu:
     
     def update(self):
         """Atualiza estado do menu e animações"""
-        # Atualizar boxes rotativas
-        for box in self.rotating_boxes:
-            box.update()
+        # Atualizar elementos dos cantos
+        for element in self.corner_elements:
+            element.update()
         
         # Atualizar círculo alvo
         self.target_circle.update()
@@ -329,11 +519,17 @@ class Menu:
         # Renderizar cenário de fundo
         self.scene.render(screen)
         
-        # Renderizar boxes animadas nos cantos
-        for box in self.rotating_boxes:
-            box.render(screen)
+        # ===== RENDERIZAR TEXTURAS EM UM ÚNICO PIXELARRAY =====
+        # Usar um único PixelArray para todos os elementos texturizados (performance)
+        with pygame.PixelArray(screen) as pixel_array:
+            screen_width = screen.get_width()
+            screen_height = screen.get_height()
+            
+            # Renderizar elementos texturizados nos cantos
+            for element in self.corner_elements:
+                element.render(pixel_array, screen_width, screen_height)
         
-        # Renderizar círculo alvo
+        # Renderizar círculo alvo (não usa textura)
         self.target_circle.render(screen)
         
         # Título
@@ -344,6 +540,9 @@ class Menu:
         if self.in_difficulty_menu:
             # Renderizar submenu de dificuldade
             self._render_difficulty_menu(screen)
+        elif self.in_guia_menu:
+            # Renderizar submenu de guia
+            self._render_guia_menu(screen)
         else:
             # Renderizar opções do menu principal
             self._render_main_menu(screen)
@@ -380,6 +579,38 @@ class Menu:
         
         # Renderizar seletor
         self.difficulty_selector.render(screen, self.font)
+    
+    def _render_guia_menu(self, screen):
+        """Renderiza o submenu de guia/explicação"""
+        # Título
+        title = self.font.render("GUIA", True, self.title_color)
+        title_rect = title.get_rect(center=(self.width // 2, self.height // 2 - 180))
+        screen.blit(title, title_rect)
+        
+        # Descrição (multi-linha, fonte menor)
+        description_font = pygame.font.Font(None, 26)
+        description_lines = [
+            "Gabrielzito Machine é um jogo arcade implementado",
+            "na disciplina de Computação Gráfica, em que o",
+            "nosso protagonista Gabriel Marques, o Gabrielzito,",
+            "tem que fugir de ETs em um determinado tempo",
+            "para vencer.",
+            "",
+            "O jogador controla o UFO dos ETs para tentar",
+            "capturar os Gabrielzitos usando <----> e SPACE",
+            "para descer, e mais um SPACE para tentar pegar",
+            "o Gabrielzito.",
+            "",
+            "JOGAR: Inicia o jogo.",
+            "DIFICULDADE: Seleciona o número de Gabrielzitos."
+        ]
+        
+        start_y = self.height // 2 - 100
+        line_spacing = 28
+        for i, line in enumerate(description_lines):
+            text = description_font.render(line, True, COLOR_TEXT)
+            text_rect = text.get_rect(center=(self.width // 2, start_y + i * line_spacing))
+            screen.blit(text, text_rect)
     
     def _render_transition(self, screen):
         """Renderiza overlay de transição fade to black"""

@@ -26,10 +26,6 @@ class GameLoop:
         
         # Instancia o 'Modelo' do jogo (Física e Estado)
         self.world = World(width, height)
-        
-        # Inicia música de fundo
-        from audio_manager import play_soundtrack
-        play_soundtrack(volume=0.5)
 
         # Carrega texturas e converte para MATRIZES (Regra de Performance)
         self.load_textures()
