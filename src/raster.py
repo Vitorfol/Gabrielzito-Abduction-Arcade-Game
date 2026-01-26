@@ -113,6 +113,94 @@ def paintPolygon(superficie, pontos, cor_preenchimento):
                     setPixel(superficie, x, y, cor_preenchimento)
 
 # =========================
+# Textured Polygon Fill
+# =========================
+def paintTexturedPolygon(superficie, vertices_uv, texture):
+    """
+    vertices_uv: Lista de tuplas [(x, y, u, v), ...]
+    texture: Surface do Pygame (imagem carregada)
+    """
+    # Extrai coordenadas Y para definir o range do scanline
+    y_values = [v[1] for v in vertices_uv]
+    y_min = int(min(y_values))
+    y_max = int(max(y_values))
+
+    n = len(vertices_uv)
+
+    tex_width = texture.get_width()
+    tex_height = texture.get_height()
+
+    for y in range(y_min, y_max):
+        intersecoes = []
+
+        for i in range(n):
+            # Vértice atual e próximo
+            x0, y0, u0, v0 = vertices_uv[i]
+            x1, y1, u1, v1 = vertices_uv[(i + 1) % n]
+
+            # Ignora arestas horizontais
+            if int(y0) == int(y1):
+                continue
+
+            # Garante y0 < y1 para facilitar cálculo
+            if y0 > y1:
+                x0, y0, u0, v0, x1, y1, u1, v1 = x1, y1, u1, v1, x0, y0, u0, v0
+
+            # Verifica se a scanline Y corta esta aresta
+            if y < y0 or y >= y1:
+                continue
+
+            # --- INTERPOLAÇÃO NA ARESTA (eixo Y) ---
+            # Fator de interpolação t (0.0 a 1.0)
+            t = (y - y0) / (y1 - y0)
+
+            x = x0 + (x1 - x0) * t
+            u = u0 + (u1 - u0) * t
+            v = v0 + (v1 - v0) * t
+
+            intersecoes.append((x, u, v))
+
+        # Ordena interseções pelo X
+        intersecoes.sort(key=lambda k: k[0])
+
+        # Preenche os pixels entre pares de interseções
+        for i in range(0, len(intersecoes), 2):
+            if i + 1 >= len(intersecoes):
+                break
+
+            x_start, u_start, v_start = intersecoes[i]
+            x_end, u_end, v_end = intersecoes[i + 1]
+
+            x_start_int = int(x_start)
+            x_end_int = int(x_end)
+
+            span_width = x_end - x_start
+            if span_width == 0:
+                continue
+
+            # --- INTERPOLAÇÃO NO SPAN (eixo X) ---
+            for x in range(x_start_int, x_end_int):
+                # Fator de interpolação horizontal
+                factor = (x - x_start) / span_width
+
+                # Calcula UV final para este pixel
+                u_final = int(u_start + (u_end - u_start) * factor)
+                v_final = int(v_start + (v_end - v_start) * factor)
+
+                # Proteção de limites da textura
+                u_final = max(0, min(u_final, tex_width - 1))
+                v_final = max(0, min(v_final, tex_height - 1))
+
+                # Pega a cor e pinta (usando seu setPixel)
+                color = texture.get_at((u_final, v_final))
+
+                # Pula pixels transparentes (verifica alpha channel)
+                if len(color) >= 4 and color[3] < 10:  # Alpha < 10 = quase transparente
+                    continue
+
+                setPixel(superficie, x, y, color)
+
+# =========================
 # Flood Fill (4-conectado)
 # =========================
 def flood_fill_iterativo(superficie, x, y, cor_preenchimento, cor_borda):
@@ -305,3 +393,67 @@ def paint_ellipse(surface, center, rx, ry, fill_color):
         
         for x in range(x_start, x_end + 1):
             setPixel(surface, x, y, fill_color)
+
+def paintTexturedEllipse(surface, center, rx, ry, texture):
+    """
+    Preenche uma elipse com uma textura.
+    A textura é mapeada para o bounding box da elipse.
+        Parâmetros:
+    - surface: superfície Pygame
+    - center: tupla (xc, yc) com coordenadas do centro
+    - rx: raio no eixo X
+    - ry: raio no eixo Y
+    - texture: textura (superfície) pygame
+    """
+    xc, yc = center
+    tex_width = texture.get_width()
+    tex_height = texture.get_height()
+    
+    # Altura e largura totais da elipse
+    total_width = 2 * rx
+    total_height = 2 * ry
+    
+    # Evita divisão por zero
+    if total_width == 0 or total_height == 0:
+        return
+
+    # Loop Y (Scanline)
+    for y in range(yc - ry, yc + ry + 1):
+        # Verifica se está dentro da elipse
+        dy = (y - yc) / ry if ry > 0 else 0
+        if dy * dy > 1: continue
+        
+        dx = (1 - dy * dy) ** 0.5
+        x_offset = int(rx * dx)
+        
+        # Define o span horizontal (início e fim do preenchimento)
+        x_start = xc - x_offset
+        x_end = xc + x_offset
+        
+        # --- Calculo do v (vertical textura) ---
+        # Normaliza a posição Y atual em relação à altura total da elipse (0.0 a 1.0)
+        # (y - topo_da_elipse) / altura_total
+        norm_y = (y - (yc - ry)) / total_height
+        
+        # Converte para coordenada da textura
+        v = int(norm_y * tex_height)
+        # Limitante para não sair da imagem
+        v = max(0, min(v, tex_height - 1))
+
+        for x in range(x_start, x_end + 1):
+            # --- Calculo do u (horizontal textura) ---
+            # Normaliza a posição X atual em relação à largura total da elipse
+            # (x - esquerda_da_elipse) / largura_total
+            norm_x = (x - (xc - rx)) / total_width
+            
+            u = int(norm_x * tex_width)
+            u = max(0, min(u, tex_width - 1))
+
+            # Pega a cor da textura
+            color = texture.get_at((u, v))
+            
+            # Ignora pixels transparentes da textura
+            if len(color) > 3 and color[3] < 10:
+                continue
+                
+            setPixel(surface, x, y, color)

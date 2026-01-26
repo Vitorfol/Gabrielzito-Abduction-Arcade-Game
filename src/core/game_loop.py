@@ -3,7 +3,7 @@ Módulo principal do loop de jogo.
 Contém a lógica de renderização e orquestração da atualização do jogo.
 """
 import pygame
-from raster import drawPolygon, paintPolygon, rect_to_polygon
+from raster import drawPolygon, paintPolygon, rect_to_polygon, paintTexturedEllipse, paintTexturedPolygon
 from entities.world import World
 import constants as const
 
@@ -35,6 +35,10 @@ class GameLoop:
         # Inicia música de fundo
         from audio_manager import play_soundtrack
         play_soundtrack(volume=0.5)
+
+        # Carrega texturas
+        # !Nota: Verificar localização própia para carregamento de texturas
+        self.ufo_texture = pygame.image.load("../assets/ufo.png")
         
         # Flags de Debug Visual
         self.show_hitbox = True
@@ -82,16 +86,13 @@ class GameLoop:
         screen.fill(const.COLOR_BG_DARK)
         
         # UFO (Corpo + Borda) - ELIPSE
-        from raster import draw_ellipse, paint_ellipse
         ufo_hitbox = self.world.ufo.get_ellipse_hitbox()
         ufo_center = ufo_hitbox['center']
         ufo_rx = ufo_hitbox['rx']
         ufo_ry = ufo_hitbox['ry']
         
-        # Preenche elipse
-        paint_ellipse(screen, ufo_center, ufo_rx, ufo_ry, const.COLOR_UFO)
-        # Desenha borda
-        draw_ellipse(screen, ufo_center, ufo_rx, ufo_ry, const.COLOR_UFO_BORDER)
+        # Pinta o interior com a textura
+        paintTexturedEllipse(screen, ufo_center, ufo_rx, ufo_ry, self.ufo_texture)
 
         # Cabo
         poly = rect_to_polygon(self.world.cable.get_rect())
