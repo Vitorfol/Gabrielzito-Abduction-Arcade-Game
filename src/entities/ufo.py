@@ -2,8 +2,8 @@ class UFO:
     def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.width = 80
-        self.height = 40
+        self.width = 100
+        self.height = 60
 
         # Propriedades de física
         self.velocity_x = 0
