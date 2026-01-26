@@ -79,6 +79,11 @@ while running:
     elif current_state == GameState.MOVE:
         game_loop.render(screen)
 
+    from fps import show_fps
+    show_fps(screen, clock)
     pygame.display.flip()
 
 pygame.quit()
+
+
+

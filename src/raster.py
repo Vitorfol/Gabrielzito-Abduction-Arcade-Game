@@ -247,7 +247,7 @@ def paintTexturedPolygon(pixel_array, screen_w, screen_h, vertices_uv, texture_m
                 color = texture_matrix[u_final][v_final]
 
                 # Checagem de transparência (Assume tupla (R,G,B,A))
-                if len(color) > 3 and color[3] < 10:
+                if color[3] < 10:
                     continue
 
                 # --- FAST WRITE (Direct Memory Access) ---
@@ -510,23 +510,19 @@ def paintTexturedEllipse(pixel_array, screen_w, screen_h, center, rx, ry, textur
         # Otimização: Pré-cálculo para evitar divisão no loop interno
         inv_total_width = 1.0 / total_width
         
+        u_step = inv_total_width * tex_w
+        current_u = ((x_draw_start - (xc - rx)) * inv_total_width) * tex_w
         # Loop X
         for x in range(x_draw_start, x_draw_end + 1):
-            # --- Calculo do u (horizontal textura) ---
-            # Normaliza X (0.0 a 1.0)
-            # Nota: Usamos a posição relativa ao início da elipse (x - (xc - rx))
-            norm_x = (x - (xc - rx)) * inv_total_width
-            
-            u = int(norm_x * tex_w)
+            u = int(current_u)
             u = max(0, min(u, tex_w - 1))
+            current_u += u_stepZ
 
             # FAST LOOKUP: Acesso direto à lista de listas (sem overhead de função)
             color = texture_matrix[u][v]
             
             # Checagem de transparência (Assume tupla RGBA ou RGB)
             # Se for RGBA e Alpha < 10, pula
-            if len(color) > 3 and color[3] < 10:
-                continue
-                
-            # FAST WRITE: Escrita direta na memória da tela
-            pixel_array[x, y] = color
+            if color[3] >= 10:
+                # FAST WRITE: Escrita direta na memória da tela
+                pixel_array[x, y] = color
