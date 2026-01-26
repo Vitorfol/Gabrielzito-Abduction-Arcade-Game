@@ -1,3 +1,5 @@
+from audio_manager import play_audio
+
 def point_in_box(px, py, box):
     x, y, w, h = box
     return x <= px <= x + w and y <= py <= y + h
@@ -10,4 +12,8 @@ def simple_grab(claw, prize):
     grabbed = point_in_box(prize.x, prize.y, grab_box)
     if grabbed:
         prize.capture()
+        try:
+            play_audio("me-solta")
+        except Exception:
+            pass
     return grabbed
