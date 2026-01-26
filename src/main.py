@@ -7,6 +7,7 @@ import pygame
 from menu import Menu
 from core.game_loop import GameLoop
 from enums.gamestate import GameState
+from enums.difficulty import Difficulty
 from constants import *
 from audio_manager import play_soundtrack
 
@@ -25,6 +26,9 @@ clock = pygame.time.Clock()
 
 play_soundtrack(volume=0.5)
 
+# Sistema de dificuldade (instância global)
+current_difficulty = Difficulty("NORMAL")
+
 # Sistema de estados
 current_state = GameState.MENU
 menu = Menu(SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -42,6 +46,11 @@ while running:
         # Estado: MENU
         if current_state == GameState.MENU:
             action = menu.handle_input(event)
+            
+            # Atualizar dificuldade se mudou
+            if action == "DIFFICULTY_CHANGED":
+                difficulty_name = menu.get_selected_difficulty()
+                current_difficulty = Difficulty(difficulty_name)
         
         # Estado: JOGANDO
         elif current_state == GameState.MOVE:
@@ -58,8 +67,7 @@ while running:
         
         # Verificar se transição do menu completou
         if menu.is_transition_complete():
-            selected_difficulty = menu.get_selected_difficulty()
-            game_loop = GameLoop(SCREEN_WIDTH, SCREEN_HEIGHT, selected_difficulty)
+            game_loop = GameLoop(SCREEN_WIDTH, SCREEN_HEIGHT, current_difficulty)
             current_state = GameState.MOVE
     
     elif current_state == GameState.MOVE:

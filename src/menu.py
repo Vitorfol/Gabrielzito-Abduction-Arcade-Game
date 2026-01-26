@@ -11,76 +11,6 @@ from constants import *
 from audio_manager import play_audio
 
 
-class RotatingBox:
-    """Bounding box animada que rotaciona e escala nos cantos da tela"""
-    
-    def __init__(self, x, y, size=ROTATING_BOX_SIZE):
-        self.center_x = x
-        self.center_y = y
-        self.base_size = size
-        
-        # Estado da animação
-        self.rotation_angle = 0
-        self.scale_factor = 1.0
-        self.scale_direction = 1
-        
-        # Velocidades
-        self.rotation_speed = ROTATION_SPEED
-        self.scale_speed = SCALE_SPEED
-        self.min_scale = SCALE_MIN
-        self.max_scale = SCALE_MAX
-        
-        # Cor da box
-        self.color = COLOR_BOX
-        self.border_color = COLOR_BOX_BORDER
-        
-    def update(self):
-        """Atualiza animação de rotação e escala"""
-        # Rotação contínua
-        self.rotation_angle += self.rotation_speed
-        if self.rotation_angle >= 360:
-            self.rotation_angle -= 360
-            
-        # Escala pulsante (aumenta e diminui)
-        self.scale_factor += self.scale_speed * self.scale_direction
-        
-        if self.scale_factor >= self.max_scale:
-            self.scale_factor = self.max_scale
-            self.scale_direction = -1
-        elif self.scale_factor <= self.min_scale:
-            self.scale_factor = self.min_scale
-            self.scale_direction = 1
-    
-    def render(self, screen):
-        """Renderiza a box com transformações aplicadas"""
-        # Vértices originais da box (quadrado centrado na origem)
-        half_size = self.base_size / 2
-        vertices = [
-            (-half_size, -half_size),
-            (half_size, -half_size),
-            (half_size, half_size),
-            (-half_size, half_size)
-        ]
-        
-        # Aplicar transformações: escala -> rotação -> translação
-        scale_matrix = scale(self.scale_factor, self.scale_factor)
-        rot_matrix = rotation(math.radians(self.rotation_angle))
-        
-        # Combinar transformações (escala primeiro, depois rotação)
-        transform = multiply_matrices(rot_matrix, scale_matrix)
-        
-        # Aplicar às vertices
-        transformed = []
-        for x, y in vertices:
-            tx, ty = apply_matrix_to_point((x, y), transform)
-            # Transladar para a posição final
-            transformed.append((int(tx + self.center_x), int(ty + self.center_y)))
-        
-        # Renderizar
-        paintPolygon(screen, transformed, self.color)
-        drawPolygon(screen, transformed, self.border_color)
-
-
 class TargetCircle:
     """Círculo tipo 'alvo' com anéis concêntricos que pulsa (escala)"""
     
@@ -93,7 +23,7 @@ class TargetCircle:
         self.scale_factor = 1.0
         self.scale_direction = 1
         
-        # Velocidades (mesmas do RotatingBox)
+        # Velocidades de animação
         self.scale_speed = SCALE_SPEED
         self.min_scale = SCALE_MIN
         self.max_scale = SCALE_MAX
@@ -437,10 +367,8 @@ class Menu:
         # Se estamos no submenu de dificuldade
         if self.in_difficulty_menu:
             if self.difficulty_selector.handle_input(event):
-                # Debug: mostrar dificuldade selecionada
-                selected = self.difficulty_selector.get_selected_difficulty()
-                print(f"DEBUG: Dificuldade selecionada: {selected}")
-                return None
+                # Retornar indicação de que dificuldade mudou
+                return "DIFFICULTY_CHANGED"
             
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN or event.key == pygame.K_ESCAPE:
@@ -582,34 +510,49 @@ class Menu:
     
     def _render_guia_menu(self, screen):
         """Renderiza o submenu de guia/explicação"""
-        # Título
+        # Título (mesmo tamanho do menu de dificuldade)
         title = self.font.render("GUIA", True, self.title_color)
-        title_rect = title.get_rect(center=(self.width // 2, self.height // 2 - 180))
+        title_rect = title.get_rect(center=(self.width // 2, self.height // 2 - 160))
         screen.blit(title, title_rect)
         
-        # Descrição (multi-linha, fonte menor)
-        description_font = pygame.font.Font(None, 26)
+        # Calcular dimensões da caixa de texto
+        box_padding = 40
+        box_x = 100
+        box_y = 170
+        box_w = self.width - 200
+        box_h = 320
+        
+        # Fundo cinza para facilitar leitura
+        box_surface = pygame.Surface((box_w, box_h))
+        box_surface.fill((40, 40, 50))
+        box_surface.set_alpha(220)
+        screen.blit(box_surface, (box_x, box_y))
+        
+        # Borda da caixa
+        pygame.draw.rect(screen, COLOR_TEXT, pygame.Rect(box_x, box_y, box_w, box_h), 2)
+        
+        # Descrição (multi-linha, mais formal baseada no README)
+        description_font = pygame.font.Font(None, 24)
         description_lines = [
-            "Gabrielzito Machine é um jogo arcade implementado",
-            "na disciplina de Computação Gráfica, em que o",
-            "nosso protagonista Gabriel Marques, o Gabrielzito,",
-            "tem que fugir de ETs em um determinado tempo",
-            "para vencer.",
+            "Gabrielzito Machine é um jogo arcade 2D inspirado nas clássicas",
+            "máquinas de garra, desenvolvido para a disciplina de Computação",
+            "Gráfica. O jogador controla uma garra mecânica dentro da máquina,",
+            "tentando capturar gabrielzitos em movimento.",
             "",
-            "O jogador controla o UFO dos ETs para tentar",
-            "capturar os Gabrielzitos usando <----> e SPACE",
-            "para descer, e mais um SPACE para tentar pegar",
-            "o Gabrielzito.",
+            "Controles:",
+            "  • SETAS: Movimentar a garra (eixos X e Y).",
+            "  • ESPAÇO: Descer a garra / Fechar a garra para capturar gabrielzitos.",
             "",
-            "JOGAR: Inicia o jogo.",
-            "DIFICULDADE: Seleciona o número de Gabrielzitos."
+            "Níveis de Dificuldade:",
+            "A dificuldade selecionada no menu afeta a velocidade dos gabrielzitos",
+            "e a quantidade de gabrielzitos em movimento dentro da máquina."
         ]
         
-        start_y = self.height // 2 - 100
-        line_spacing = 28
+        start_y = box_y + 25
+        line_spacing = 24
         for i, line in enumerate(description_lines):
             text = description_font.render(line, True, COLOR_TEXT)
-            text_rect = text.get_rect(center=(self.width // 2, start_y + i * line_spacing))
+            text_rect = text.get_rect(left=box_x + 30, top=start_y + i * line_spacing)
             screen.blit(text, text_rect)
     
     def _render_transition(self, screen):

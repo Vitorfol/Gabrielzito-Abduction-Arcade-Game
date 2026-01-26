@@ -5,6 +5,7 @@ Contém a lógica de renderização e orquestração da atualização do jogo.
 import pygame
 from raster import drawPolygon, paintPolygon, rect_to_polygon, paintTexturedEllipse, paintTexturedPolygon
 from entities.world import World
+from enums.difficulty import Difficulty
 import constants as const
 
 class GameLoop:
@@ -16,15 +17,23 @@ class GameLoop:
     pipeline de renderização dos polígonos na tela.
     """
     
-    def __init__(self, width, height, difficulty="NORMAL"):
+    def __init__(self, width, height, difficulty):
         """
         Inicializa uma nova sessão de jogo.
+        
+        Args:
+            width (int): Largura da tela
+            height (int): Altura da tela
+            difficulty (Difficulty): Instância da classe Difficulty
         """
         self.width = width
         self.height = height
         self.difficulty = difficulty
         
+        print(f"Iniciando jogo com: {difficulty.level}")
+        
         # Instancia o 'Modelo' do jogo (Física e Estado)
+        # TODO: Passar parâmetros de dificuldade para World (num_prizes, prize_speed)
         self.world = World(width, height)
 
         # Carrega texturas e converte para MATRIZES (Regra de Performance)
