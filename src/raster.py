@@ -1,3 +1,4 @@
+import pygame
 
 # =========================
 # Converte retângulo (x, y, w, h) para lista de vértices de polígono.
@@ -6,12 +7,29 @@ def rect_to_polygon(rect):
     x, y, w, h = rect
     return [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
 
+# =========================
+# Primitivas (Pixel, Linha, Polígono) - Otimizado para PixelArray
+# =========================
 
-def setPixel(superficie, x, y, cor):
-    if 0 <= x < superficie.get_width() and 0 <= y < superficie.get_height():
-        superficie.set_at((x, y), cor)
+def setPixel(surface, x, y, color):
+    """Safe setPixel that handles both Surface and PixelArray"""
+    try:
+        # Tenta caminho rápido (PixelArray)
+        if 0 <= x < surface.shape[0] and 0 <= y < surface.shape[1]:
+            surface[x, y] = color
+    except AttributeError:
+        # Fallback para Surface padrão
+        if 0 <= x < surface.get_width() and 0 <= y < surface.get_height():
+            surface.set_at((x, y), color)
 
-def bresenham(superficie, x0, y0, x1, y1, cor):
+def bresenham(surface, x0, y0, x1, y1, color):
+    # Detecta se é PixelArray para otimização
+    is_pixel_array = isinstance(surface, pygame.PixelArray)
+    if is_pixel_array:
+        w, h = surface.shape
+    else:
+        w, h = surface.get_width(), surface.get_height()
+
     # Flags para transformações
     steep = abs(y1 - y0) > abs(x1 - x0)
     if steep:
@@ -30,7 +48,6 @@ def bresenham(superficie, x0, y0, x1, y1, cor):
         ystep = -1
         dy = -dy
 
-    # Bresenham clássico
     d = 2 * dy - dx
     incE = 2 * dy
     incNE = 2 * (dy - dx)
@@ -39,10 +56,14 @@ def bresenham(superficie, x0, y0, x1, y1, cor):
     y = y0
 
     while x <= x1:
-        if steep:
-            setPixel(superficie, y, x, cor)
-        else:
-            setPixel(superficie, x, y, cor)
+        # Desenha pixels (Lógica duplicada para evitar overhead de função)
+        target_x, target_y = (y, x) if steep else (x, y)
+        
+        if 0 <= target_x < w and 0 <= target_y < h:
+            if is_pixel_array:
+                surface[target_x, target_y] = color
+            else:
+                surface.set_at((target_x, target_y), color)
 
         if d <= 0:
             d += incE
@@ -52,28 +73,31 @@ def bresenham(superficie, x0, y0, x1, y1, cor):
 
         x += 1
 
-def drawLine(superficie, x0, y0, x1, y1, cor):
-    bresenham(superficie, x0, y0, x1, y1, cor)
+def drawLine(surface, x0, y0, x1, y1, color):
+    bresenham(surface, x0, y0, x1, y1, color)
 
-
-# =========================
-# Desenho do polígono
-# =========================
-def drawPolygon(superficie, pontos, cor_borda):
+def drawPolygon(surface, pontos, color):
     n = len(pontos)
     for i in range(n):
         x0, y0 = pontos[i]
         x1, y1 = pontos[(i + 1) % n]
-        bresenham(superficie, x0, y0, x1, y1, cor_borda)
+        bresenham(surface, x0, y0, x1, y1, color)
 
 # =========================
-# Scanline Fill
+# Scanline Fill - Otimizado para PixelArray
 # =========================
-def paintPolygon(superficie, pontos, cor_preenchimento):
+def paintPolygon(surface, pontos, color):
+    # Detecta tipo de superfície
+    is_pixel_array = isinstance(surface, pygame.PixelArray)
+    if is_pixel_array:
+        width, height = surface.shape
+    else:
+        width, height = surface.get_width(), surface.get_height()
+
     # Encontra Y mínimo e máximo
     ys = [p[1] for p in pontos]
-    y_min = min(ys)
-    y_max = max(ys)
+    y_min = max(0, min(ys))
+    y_max = min(height, max(ys))
     n = len(pontos)
 
     for y in range(y_min, y_max):
@@ -90,11 +114,11 @@ def paintPolygon(superficie, pontos, cor_preenchimento):
             if y0 > y1:
                 x0, y0, x1, y1 = x1, y1, x0, y0
 
-            # Regra Ymin ≤ y < Ymax
+            # Regra Ymin ≤ y < Ymax e Scanline Intersection
             if y < y0 or y >= y1:
                 continue
 
-            # Calcula interseção
+            # Calcula interseção X
             x = x0 + (y - y0) * (x1 - x0) / (y1 - y0)
             intersecoes_x.append(x)
 
@@ -104,27 +128,46 @@ def paintPolygon(superficie, pontos, cor_preenchimento):
         # Preenche entre pares
         for i in range(0, len(intersecoes_x), 2):
             if i + 1 < len(intersecoes_x):
-                x_inicio = int(round(intersecoes_x[i]))
-                x_fim = int(round(intersecoes_x[i + 1]))
+                x_start = int(round(intersecoes_x[i]))
+                x_end = int(round(intersecoes_x[i + 1]))
 
-                for x in range(x_inicio, x_fim + 1):
-                    setPixel(superficie, x, y, cor_preenchimento)
+                # Clipping Horizontal
+                x_start = max(0, x_start)
+                x_end = min(width - 1, x_end)
+
+                # Desenho Rápido vs Lento
+                if is_pixel_array:
+                    # Otimização: Loop direto sem chamada de função
+                    for x in range(x_start, x_end + 1):
+                        surface[x, y] = color
+                else:
+                    for x in range(x_start, x_end + 1):
+                        surface.set_at((x, y), color)
 
 # =========================
 # Textured Polygon Fill
 # =========================
-def paintTexturedPolygon(superficie, vertices_uv, texture, method='standard'):
+def paintTexturedPolygon(pixel_array, screen_w, screen_h, vertices_uv, texture_matrix, tex_w, tex_h, method='standard'):
     """
-    vertices_uv: Lista de tuplas [(x, y, u, v), ...]
-    texture: Surface do Pygame (imagem carregada)
+    Optimized version using Direct Memory Access (PixelArray) and Texture Matrices.
+    
+    Args:
+        pixel_array: pygame.PixelArray (locked screen surface)
+        screen_w, screen_h: int (screen dimensions)
+        vertices_uv: list of (x, y, u, v)
+        texture_matrix: list of lists containing colors (pre-loaded texture)
+        tex_w, tex_h: int (dimensions of the texture)
+        method: 'standard' or 'tiling'
     """
     # Extrai coordenadas Y para definir o range do scanline
     y_values = [v[1] for v in vertices_uv]
     y_min = int(min(y_values))
     y_max = int(max(y_values))
     n = len(vertices_uv)
-    tex_width = texture.get_width()
-    tex_height = texture.get_height()
+
+    # Proteção para não desenhar fora da tela (vertical)
+    y_min = max(0, y_min)
+    y_max = min(screen_h, y_max)
 
     for y in range(y_min, y_max):
         intersecoes = []
@@ -146,9 +189,7 @@ def paintTexturedPolygon(superficie, vertices_uv, texture, method='standard'):
                 continue
 
             # --- interpolação eixo Y ---
-            # Fator de interpolação t (0.0 a 1.0)
             t = (y - y0) / (y1 - y0)
-
             x = x0 + (x1 - x0) * t
             u = u0 + (u1 - u0) * t
             v = v0 + (v1 - v0) * t
@@ -173,37 +214,37 @@ def paintTexturedPolygon(superficie, vertices_uv, texture, method='standard'):
             if span_width == 0:
                 continue
 
+            # Clipping horizontal (para não desenhar fora da tela)
+            x_draw_start = max(0, x_start_int)
+            x_draw_end = min(screen_w, x_end_int)
+
             # --- interpolação eixo X ---
-            for x in range(x_start_int, x_end_int):
+            for x in range(x_draw_start, x_draw_end):
                 # Fator de interpolação horizontal
+                # Nota: calcula baseado no span original, não no clippado, para manter a textura correta
                 factor = (x - x_start) / span_width
 
                 # Calcula UV final para este pixel
                 u_final = int(u_start + (u_end - u_start) * factor)
                 v_final = int(v_start + (v_end - v_start) * factor)
 
-                if method == 'standard':
-                    # Clamp para evitar sair da textura
-                    u_final = max(0, min(u_final, tex_width - 1))
-                    v_final = max(0, min(v_final, tex_height - 1))
-                elif method == 'tiling':
-                    # Tiling (repetição da textura)
-                    # Em vez de definiir min/max, usa módulo
-                    u_final = u_final % tex_width
-                    v_final = v_final % tex_height 
+                # Lógica de Tiling vs Clamp
+                if method == 'tiling':
+                    u_final = u_final % tex_w
+                    v_final = v_final % tex_h 
+                else:
+                    u_final = max(0, min(u_final, tex_w - 1))
+                    v_final = max(0, min(v_final, tex_h - 1))
 
-                # Proteção de limites da textura
-                u_final = max(0, min(u_final, tex_width - 1))
-                v_final = max(0, min(v_final, tex_height - 1))
+                # --- FAST LOOKUP (No function call overhead) ---
+                color = texture_matrix[u_final][v_final]
 
-                # Pega a cor e pinta (usando seu setPixel)
-                color = texture.get_at((u_final, v_final))
-
-                # Pula pixels transparentes (verifica alpha channel)
-                if len(color) >= 4 and color[3] < 10:  # Alpha < 10 = quase transparente
+                # Checagem de transparência (Assume tupla (R,G,B,A))
+                if len(color) > 3 and color[3] < 10:
                     continue
 
-                setPixel(superficie, x, y, color)
+                # --- FAST WRITE (Direct Memory Access) ---
+                pixel_array[x, y] = color
 
 # =========================
 # Flood Fill (4-conectado)
@@ -399,20 +440,20 @@ def paint_ellipse(surface, center, rx, ry, fill_color):
         for x in range(x_start, x_end + 1):
             setPixel(surface, x, y, fill_color)
 
-def paintTexturedEllipse(surface, center, rx, ry, texture):
+def paintTexturedEllipse(pixel_array, screen_w, screen_h, center, rx, ry, texture_matrix, tex_w, tex_h):
     """
-    Preenche uma elipse com uma textura.
-    A textura é mapeada para o bounding box da elipse.
-        Parâmetros:
-    - surface: superfície Pygame
+    Preenche uma elipse com uma textura usando PixelArray e Matrizes (Otimizado).
+    
+    Parâmetros:
+    - pixel_array: pygame.PixelArray (Acesso direto à memória da tela)
+    - screen_w, screen_h: Dimensões da tela (para clipping)
     - center: tupla (xc, yc) com coordenadas do centro
     - rx: raio no eixo X
     - ry: raio no eixo Y
-    - texture: textura (superfície) pygame
+    - texture_matrix: Matriz 2D de cores [x][y] (textura pré-carregada)
+    - tex_w, tex_h: Dimensões da textura
     """
     xc, yc = center
-    tex_width = texture.get_width()
-    tex_height = texture.get_height()
     
     # Altura e largura totais da elipse
     total_width = 2 * rx
@@ -422,43 +463,60 @@ def paintTexturedEllipse(surface, center, rx, ry, texture):
     if total_width == 0 or total_height == 0:
         return
 
+    # Otimização: define limites de Y na tela (Clipping Vertical)
+    y_start = max(0, yc - ry)
+    y_end = min(screen_h - 1, yc + ry)
+
     # Loop Y (Scanline)
-    for y in range(yc - ry, yc + ry + 1):
-        # Verifica se está dentro da elipse
+    for y in range(y_start, y_end + 1):
+        # Verifica se está dentro da elipse geometricamente
         dy = (y - yc) / ry if ry > 0 else 0
-        if dy * dy > 1: continue
+        term = 1 - dy * dy
         
-        dx = (1 - dy * dy) ** 0.5
+        if term < 0: 
+            continue
+        
+        dx = term ** 0.5
         x_offset = int(rx * dx)
         
-        # Define o span horizontal (início e fim do preenchimento)
+        # Define o span horizontal (início e fim do preenchimento desta linha)
         x_start = xc - x_offset
         x_end = xc + x_offset
         
-        # --- Calculo do v (vertical textura) ---
-        # Normaliza a posição Y atual em relação à altura total da elipse (0.0 a 1.0)
-        # (y - topo_da_elipse) / altura_total
-        norm_y = (y - (yc - ry)) / total_height
+        # Clipping Horizontal (impede desenhar fora da tela e crashar o array)
+        x_draw_start = max(0, x_start)
+        x_draw_end = min(screen_w - 1, x_end)
         
-        # Converte para coordenada da textura
-        v = int(norm_y * tex_height)
-        # Limitante para não sair da imagem
-        v = max(0, min(v, tex_height - 1))
+        # Se o span estiver totalmente fora da tela, pula
+        if x_draw_start > x_draw_end:
+            continue
 
-        for x in range(x_start, x_end + 1):
+        # --- Calculo do v (vertical textura) ---
+        # Normaliza Y (0.0 a 1.0)
+        norm_y = (y - (yc - ry)) / total_height
+        v = int(norm_y * tex_h)
+        v = max(0, min(v, tex_h - 1))
+
+        # Otimização: Pré-cálculo para evitar divisão no loop interno
+        inv_total_width = 1.0 / total_width
+        
+        # Loop X
+        for x in range(x_draw_start, x_draw_end + 1):
             # --- Calculo do u (horizontal textura) ---
-            # Normaliza a posição X atual em relação à largura total da elipse
-            # (x - esquerda_da_elipse) / largura_total
-            norm_x = (x - (xc - rx)) / total_width
+            # Normaliza X (0.0 a 1.0)
+            # Nota: Usamos a posição relativa ao início da elipse (x - (xc - rx))
+            norm_x = (x - (xc - rx)) * inv_total_width
             
-            u = int(norm_x * tex_width)
-            u = max(0, min(u, tex_width - 1))
+            u = int(norm_x * tex_w)
+            u = max(0, min(u, tex_w - 1))
 
-            # Pega a cor da textura
-            color = texture.get_at((u, v))
+            # FAST LOOKUP: Acesso direto à lista de listas (sem overhead de função)
+            color = texture_matrix[u][v]
             
-            # Ignora pixels transparentes da textura
+            # Checagem de transparência (Assume tupla RGBA ou RGB)
+            # Se for RGBA e Alpha < 10, pula
             if len(color) > 3 and color[3] < 10:
                 continue
                 
-            setPixel(surface, x, y, color)
+            # FAST WRITE: Escrita direta na memória da tela
+            pixel_array[x, y] = color
