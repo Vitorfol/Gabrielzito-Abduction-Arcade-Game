@@ -2,6 +2,7 @@
 Ponto de entrada principal do Claw Machine Game.
 Gerencia estados do jogo (Menu, Jogando, Explicação).
 """
+from sys import flags
 import pygame
 from menu import Menu
 from core.game_loop import GameLoop
@@ -10,7 +11,8 @@ from constants import *
 
 pygame.init()
 
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+flags = pygame.SCALED | pygame.RESIZABLE | pygame.FULLSCREEN
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), flags)
 pygame.display.set_caption("Claw Machine Game")
 clock = pygame.time.Clock()
 

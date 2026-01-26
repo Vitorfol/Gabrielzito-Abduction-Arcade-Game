@@ -3,16 +3,9 @@ Módulo principal do loop de jogo.
 Contém a lógica de renderização e orquestração da atualização do jogo.
 """
 import pygame
-from raster import drawPolygon, paintPolygon, rect_to_polygon
-from transformations import multiply_matrices, multiply_matrix_vector
+from raster import drawPolygon, paintPolygon, rect_to_polygon, paintTexturedEllipse, paintTexturedPolygon
 from entities.world import World
 import constants as const
-from viewport_utils import viewport_window
-
-def inventory_position(index):
-    col = index % 4
-    row = index // 4
-    return (20 + col * 30, 20 + row * 30)
 
 class GameLoop:
     """
@@ -26,11 +19,6 @@ class GameLoop:
     def __init__(self, width, height, difficulty="NORMAL"):
         """
         Inicializa uma nova sessão de jogo.
-
-        Args:
-            width (int): Largura da janela renderizável.
-            height (int): Altura da janela renderizável.
-            difficulty (str): Configuração de dificuldade (afeta comportamento das entidades).
         """
         self.width = width
         self.height = height
@@ -42,112 +30,140 @@ class GameLoop:
         # Inicia música de fundo
         from audio_manager import play_soundtrack
         play_soundtrack(volume=0.5)
+
+        # Carrega texturas e converte para MATRIZES (Regra de Performance)
+        self.load_textures()
         
         # Flags de Debug Visual
         self.show_hitbox = True
         
     def handle_input(self, event):
         """
-        Processa eventos discretos de input (ex: pressionar tecla única).
-
-        Args:
-            event (pygame.event.Event): O evento capturado pelo Pygame.
-
-        Returns:
-            str | None: Retorna "BACK_TO_MENU" se o jogo deve ser encerrado,
-                        caso contrário retorna None.
+        Processa eventos discretos de input.
         """
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE:
-                # Delega o gatilho de ação para a máquina de estados do World
                 self.world.handle_input_trigger()
-                
             elif event.key == pygame.K_ESCAPE:
-                # Sinaliza para o main.py que devemos trocar de cena
                 return "BACK_TO_MENU"
         return None
     
     def update(self, keys):
         """
         Avança um frame na simulação do jogo.
-        
-        Args:
-            keys (pygame.key.ScancodeWrapper): Estado atual de todas as teclas (para movimento contínuo).
         """
         self.world.update(keys)
     
     def render(self, screen):
         """
         Renderiza o frame atual. Limpa a tela e desenha as entidades.
-        
-        A ordem de desenho define o 'z-index' (camadas):
-        Background -> UFO -> Cabo -> Garra -> Debug -> Prêmios.
-        
-        Args:
-            screen (pygame.Surface): A superfície principal onde o jogo será desenhado.
+        Usa PixelArray para cumprir a regra de "Set Pixel" com performance.
         """
         screen.fill(const.COLOR_BG_DARK)
+
+        # LOCK da superfície para acesso direto à memória (MUITO mais rápido que set_at)
+        with pygame.PixelArray(screen) as px_array:
+            
+            # UFO (Corpo + Borda) - ELIPSE
+            ufo_hitbox = self.world.ufo.get_ellipse_hitbox()
+            ufo_center = ufo_hitbox['center']
+            ufo_rx = ufo_hitbox['rx']
+            ufo_ry = ufo_hitbox['ry']
+            
+            # Pinta o interior com a textura (Passando Matriz e Array)
+            # Nota: Você precisa atualizar paintTexturedEllipse em raster.py para aceitar px_array
+            paintTexturedEllipse(
+                px_array, self.width, self.height, 
+                ufo_center, ufo_rx, ufo_ry, 
+                self.ufo_matrix, self.ufo_w, self.ufo_h
+            )
+
+            # Cabo (Passamos o px_array para o sub-metodo)
+            self.render_cable(px_array)
+
+            # Garra (Muda cor baseada no estado aberto/fechado)
+            poly = rect_to_polygon(self.world.claw.get_rect())
+            color = const.COLOR_CLAW_CLOSED if self.world.claw.is_closed else const.COLOR_CLAW_OPEN
+            
+            # Nota: paintPolygon e drawPolygon em raster.py TAMBÉM devem ser 
+            # atualizados para aceitar pixel_array no lugar de surface!
+            paintPolygon(px_array, poly, color)
+            drawPolygon(px_array, poly, const.COLOR_CLAW_BORDER)
+
+            # Debug: Hitbox da garra
+            if self.show_hitbox:
+                poly = rect_to_polygon(self.world.claw.get_grab_hitbox())
+                drawPolygon(px_array, poly, const.COLOR_HITBOX_DEBUG)
+
+            # Prêmios não capturados
+            for prize in self.world.prizes:
+                if not prize.captured:
+                    half = prize.size // 2
+                    p_x = prize.x
+                    p_y = prize.y
+
+                    # Vértices do prêmio
+                    vertices_prize = [
+                        (p_x - half, p_y - half, 0,  0),                # Topo Esq
+                        (p_x + half, p_y - half, self.prize_w, 0),      # Topo Dir
+                        (p_x + half, p_y + half, self.prize_w, self.prize_h), # Base Dir
+                        (p_x - half, p_y + half, 0,  self.prize_h)      # Base Esq
+                    ]
+                    
+                    # Chama a versão otimizada com Matriz
+                    paintTexturedPolygon(
+                        px_array, self.width, self.height, 
+                        vertices_prize, 
+                        self.prize_matrix, self.prize_w, self.prize_h, 
+                        'standard'
+                    )
+
+    def render_cable(self, px_array):
+        """
+        Renderiza o cabo do UFO com textura repetida (Tiling).
+        Recebe px_array ao invés de screen.
+        """
+        cable_rect = self.world.cable.get_rect() # Retorna (x, y, w, h)
+        cx, cy, cw, ch = cable_rect
+
+        # Mapeamento UV para repetição:
+        # U vai de 0 a tex_w (largura da imagem)
+        # V vai de 0 a ch (altura DO CABO)
         
-        # UFO (Corpo + Borda) - ELIPSE
-        from raster import draw_ellipse, paint_ellipse
-        ufo_hitbox = self.world.ufo.get_ellipse_hitbox()
-        ufo_center = ufo_hitbox['center']
-        ufo_rx = ufo_hitbox['rx']
-        ufo_ry = ufo_hitbox['ry']
-        
-        # Preenche elipse
-        paint_ellipse(screen, ufo_center, ufo_rx, ufo_ry, const.COLOR_UFO)
-        # Desenha borda
-        draw_ellipse(screen, ufo_center, ufo_rx, ufo_ry, const.COLOR_UFO_BORDER)
+        vertices_cable = [
+            (cx,      cy,      0,            0),   
+            (cx + cw, cy,      self.cable_w, 0),   
+            (cx + cw, cy + ch, self.cable_w, ch),  # V = altura do cabo
+            (cx,      cy + ch, 0,            ch)   
+        ]
 
-        # Cabo
-        poly = rect_to_polygon(self.world.cable.get_rect())
-        paintPolygon(screen, poly, const.COLOR_CABLE)
+        paintTexturedPolygon(
+            px_array, self.width, self.height, 
+            vertices_cable, 
+            self.cable_matrix, self.cable_w, self.cable_h, 
+            'tiling'
+        )
 
-        # Garra (Muda cor baseada no estado aberto/fechado)
-        poly = rect_to_polygon(self.world.claw.get_rect())
-        color = const.COLOR_CLAW_CLOSED if self.world.claw.is_closed else const.COLOR_CLAW_OPEN
-        paintPolygon(screen, poly, color)
-        drawPolygon(screen, poly, const.COLOR_CLAW_BORDER)
+    def load_textures(self):
+        """Carrega imagens e converte para matrizes numéricas (list of lists)."""
+        # 1. Carrega Imagens
+        ufo_surf = pygame.image.load("../assets/ufo.png")
+        prize_surf = pygame.image.load("../assets/gabriel.png")
+        cable_surf = pygame.image.load("../assets/cable.png")
 
-        # Debug: Hitbox da garra
-        if self.show_hitbox:
-            poly = rect_to_polygon(self.world.claw.get_grab_hitbox())
-            drawPolygon(screen, poly, const.COLOR_HITBOX_DEBUG)
+        # 2. Converte para Matrizes (Acesso Rápido)
+        self.ufo_matrix, self.ufo_w, self.ufo_h = self.surface_to_matrix(ufo_surf)
+        self.prize_matrix, self.prize_w, self.prize_h = self.surface_to_matrix(prize_surf)
+        self.cable_matrix, self.cable_w, self.cable_h = self.surface_to_matrix(cable_surf)
 
-        inventory_window = (0, 0, 100, 100)   # espaço lógico do inventário
-        inventory_viewport = (600, 0, 800, 200)  # espaço na tela
-        VW_inventory = viewport_window(inventory_window, inventory_viewport)
-        # Prêmios não capturados
-        for prize in self.world.prizes:
-            if not prize.captured:
-                poly = rect_to_polygon((
-                    prize.x - prize.size // 2,
-                    prize.y - prize.size // 2,
-                    prize.size,
-                    prize.size
-                ))
-                paintPolygon(screen, poly, const.COLOR_PRIZE)
-                drawPolygon(screen, poly, const.COLOR_PRIZE_BORDER)
-
-        captured = [p for p in self.world.prizes if p.captured]
-
-        for i, prize in enumerate(captured):
-            x, y = inventory_position(i)
-
-            poly = rect_to_polygon((
-                x - prize.size // 2,
-                y - prize.size // 2,
-                prize.size,
-                prize.size
-            ))
-
-            view_poly = []
-            for vx, vy in poly:
-                P = [vx, vy, 1]
-                P_tela = multiply_matrix_vector(VW_inventory, P)
-                view_poly.append((P_tela[0], P_tela[1]))
-
-            paintPolygon(screen, view_poly, const.COLOR_PRIZE)
-            drawPolygon(screen, view_poly, const.COLOR_PRIZE_BORDER)
-                
+    def surface_to_matrix(self, surface):
+        """Converte Surface Pygame para lista 2D de cores [x][y]."""
+        w = surface.get_width()
+        h = surface.get_height()
+        matrix = []
+        for x in range(w):
+            col = []
+            for y in range(h):
+                col.append(surface.get_at((x, y)))
+            matrix.append(col)
+        return matrix, w, h
