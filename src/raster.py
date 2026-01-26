@@ -516,7 +516,7 @@ def paintTexturedEllipse(pixel_array, screen_w, screen_h, center, rx, ry, textur
         for x in range(x_draw_start, x_draw_end + 1):
             u = int(current_u)
             u = max(0, min(u, tex_w - 1))
-            current_u += u_stepZ
+            current_u += u_step
 
             # FAST LOOKUP: Acesso direto à lista de listas (sem overhead de função)
             color = texture_matrix[u][v]
