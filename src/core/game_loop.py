@@ -81,19 +81,46 @@ class GameLoop:
             # Cabo (Passamos o px_array para o sub-metodo)
             self.render_cable(px_array)
 
-            # Garra (Muda cor baseada no estado aberto/fechado)
-            poly = rect_to_polygon(self.world.claw.get_rect())
-            color = const.COLOR_CLAW_CLOSED if self.world.claw.is_closed else const.COLOR_CLAW_OPEN
-            
-            # Nota: paintPolygon e drawPolygon em raster.py TAMBÉM devem ser 
-            # atualizados para aceitar pixel_array no lugar de surface!
-            paintPolygon(px_array, poly, color)
-            drawPolygon(px_array, poly, const.COLOR_CLAW_BORDER)
+            # Garra (Muda baseada no estado aberto/fechado)
+            #Get the geometry
+            claw_rect = self.world.claw.get_rect()
+            cx, cy, cw, ch = claw_rect
 
-            # Debug: Hitbox da garra
-            if self.show_hitbox:
-                poly = rect_to_polygon(self.world.claw.get_grab_hitbox())
-                drawPolygon(px_array, poly, const.COLOR_HITBOX_DEBUG)
+            # Escolhe a textura da garra com base no estado
+            if self.world.claw.is_closed:
+                # Define vertices with UV Mapping (X, Y, U, V)
+                # U goes from 0 to texture_width (self.claw_w)
+                # V goes from 0 to texture_height (self.claw_h)
+                vertices_claw = [
+                    (cx,      cy,      0,           0),            # Top-Left
+                    (cx + cw, cy,      self.claw_w, 0),            # Top-Right
+                    (cx + cw, cy + ch, self.claw_w, self.claw_h),  # Bottom-Right
+                    (cx,      cy + ch, 0,           self.claw_h)   # Bottom-Left
+                ]
+
+                # Call the textured polygon function with the correct 4-tuple vertices
+                paintTexturedPolygon(
+                    px_array, self.width, self.height, 
+                    vertices_claw,  # Passing the new list with UVs
+                    self.claw_matrix, self.claw_w, self.claw_h, 
+                    'standard'
+                )
+            else:
+                # Define vertices with UV Mapping (X, Y, U, V)
+                vertices_claw_open = [
+                    (cx,      cy,      0,               0),                  # Top-Left
+                    (cx + cw, cy,      self.claw_open_w, 0),                 # Top-Right
+                    (cx + cw, cy + ch, self.claw_open_w, self.claw_open_h),  # Bottom-Right
+                    (cx,      cy + ch, 0,               self.claw_open_h)    # Bottom-Left
+                ]
+
+                # Call the textured polygon function with the correct 4-tuple vertices
+                paintTexturedPolygon(
+                    px_array, self.width, self.height, 
+                    vertices_claw_open,  # Passing the new list with UVs
+                    self.claw_open_matrix, self.claw_open_w, self.claw_open_h, 
+                    'standard'
+                )
 
             # Prêmios não capturados
             for prize in self.world.prizes:
@@ -150,11 +177,15 @@ class GameLoop:
         ufo_surf = pygame.image.load("../assets/ufo.png")
         prize_surf = pygame.image.load("../assets/gabriel.png")
         cable_surf = pygame.image.load("../assets/cable.png")
+        claw_surf = pygame.image.load("../assets/claw.png")
+        claw_open_surf = pygame.image.load("../assets/claw_open.png")
 
         # 2. Converte para Matrizes (Acesso Rápido)
         self.ufo_matrix, self.ufo_w, self.ufo_h = self.surface_to_matrix(ufo_surf)
         self.prize_matrix, self.prize_w, self.prize_h = self.surface_to_matrix(prize_surf)
         self.cable_matrix, self.cable_w, self.cable_h = self.surface_to_matrix(cable_surf)
+        self.claw_matrix, self.claw_w, self.claw_h = self.surface_to_matrix(claw_surf)
+        self.claw_open_matrix, self.claw_open_w, self.claw_open_h = self.surface_to_matrix(claw_open_surf)
 
     def surface_to_matrix(self, surface):
         """Converte Surface Pygame para lista 2D de cores [x][y]."""
