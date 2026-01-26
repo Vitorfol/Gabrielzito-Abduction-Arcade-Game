@@ -39,6 +39,8 @@ class GameLoop:
         # Carrega texturas
         # !Nota: Verificar localização própia para carregamento de texturas
         self.ufo_texture = pygame.image.load("../assets/ufo.png")
+        self.prize_texture = pygame.image.load("../assets/gabriel.png")
+        self.cable_texture = pygame.image.load("../assets/cable.png")
         
         # Flags de Debug Visual
         self.show_hitbox = True
@@ -90,13 +92,11 @@ class GameLoop:
         ufo_center = ufo_hitbox['center']
         ufo_rx = ufo_hitbox['rx']
         ufo_ry = ufo_hitbox['ry']
-        
         # Pinta o interior com a textura
         paintTexturedEllipse(screen, ufo_center, ufo_rx, ufo_ry, self.ufo_texture)
 
         # Cabo
-        poly = rect_to_polygon(self.world.cable.get_rect())
-        paintPolygon(screen, poly, const.COLOR_CABLE)
+        self.render_cable(screen)
 
         # Garra (Muda cor baseada no estado aberto/fechado)
         poly = rect_to_polygon(self.world.claw.get_rect())
@@ -112,11 +112,44 @@ class GameLoop:
         # Prêmios não capturados
         for prize in self.world.prizes:
             if not prize.captured:
-                poly = rect_to_polygon((
-                    prize.x - prize.size // 2,
-                    prize.y - prize.size // 2,
-                    prize.size,
-                    prize.size
-                ))
-                paintPolygon(screen, poly, const.COLOR_PRIZE)
-                drawPolygon(screen, poly, const.COLOR_PRIZE_BORDER)
+                pw = self.prize_texture.get_width()
+                ph = self.prize_texture.get_height()
+                half = prize.size // 2
+                p_x = prize.x
+                p_y = prize.y
+
+                vertices_prize = [
+                    (p_x - half, p_y - half, 0,  0),   # Topo Esquerda
+                    (p_x + half, p_y - half, pw, 0),   # Topo Direita
+                    (p_x + half, p_y + half, pw, ph),  # Base Direita
+                    (p_x - half, p_y + half, 0,  ph)   # Base Esquerda
+                ]
+                paintTexturedPolygon(screen, vertices_prize, self.prize_texture, 'standard')
+
+
+    def render_cable(self, screen):
+            """
+            Renderiza o cabo do UFO com textura repetida.
+            
+            Args:
+                screen (pygame.Surface): A superfície principal onde o jogo será desenhado.
+            """
+            cable_rect = self.world.cable.get_rect() # Retorna (x, y, w, h)
+            cx, cy, cw, ch = cable_rect
+
+            tex_w = self.cable_texture.get_width()
+            tex_h = self.cable_texture.get_height()
+
+            # Mapeamento UV para repetição:
+            # U vai de 0 a tex_w (largura da imagem)
+            # V vai de 0 a ch (altura DO CABO, não da imagem!)
+            # Como ch geralmente é maior que tex_h, o módulo (%) fará a repetição.
+
+            vertices_cable = [
+                (cx,      cy,      0,     0),   # Topo Esq
+                (cx + cw, cy,      tex_w, 0),   # Topo Dir
+                (cx + cw, cy + ch, tex_w, ch),  # Base Dir (V = altura do cabo)
+                (cx,      cy + ch, 0,     ch)   # Base Esq (V = altura do cabo)
+            ]
+
+            paintTexturedPolygon(screen, vertices_cable, self.cable_texture, 'tiling')

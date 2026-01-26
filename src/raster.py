@@ -74,12 +74,10 @@ def paintPolygon(superficie, pontos, cor_preenchimento):
     ys = [p[1] for p in pontos]
     y_min = min(ys)
     y_max = max(ys)
-
     n = len(pontos)
 
     for y in range(y_min, y_max):
         intersecoes_x = []
-
         for i in range(n):
             x0, y0 = pontos[i]
             x1, y1 = pontos[(i + 1) % n]
@@ -115,7 +113,7 @@ def paintPolygon(superficie, pontos, cor_preenchimento):
 # =========================
 # Textured Polygon Fill
 # =========================
-def paintTexturedPolygon(superficie, vertices_uv, texture):
+def paintTexturedPolygon(superficie, vertices_uv, texture, method='standard'):
     """
     vertices_uv: Lista de tuplas [(x, y, u, v), ...]
     texture: Surface do Pygame (imagem carregada)
@@ -124,15 +122,12 @@ def paintTexturedPolygon(superficie, vertices_uv, texture):
     y_values = [v[1] for v in vertices_uv]
     y_min = int(min(y_values))
     y_max = int(max(y_values))
-
     n = len(vertices_uv)
-
     tex_width = texture.get_width()
     tex_height = texture.get_height()
 
     for y in range(y_min, y_max):
         intersecoes = []
-
         for i in range(n):
             # Vértice atual e próximo
             x0, y0, u0, v0 = vertices_uv[i]
@@ -150,7 +145,7 @@ def paintTexturedPolygon(superficie, vertices_uv, texture):
             if y < y0 or y >= y1:
                 continue
 
-            # --- INTERPOLAÇÃO NA ARESTA (eixo Y) ---
+            # --- interpolação eixo Y ---
             # Fator de interpolação t (0.0 a 1.0)
             t = (y - y0) / (y1 - y0)
 
@@ -178,7 +173,7 @@ def paintTexturedPolygon(superficie, vertices_uv, texture):
             if span_width == 0:
                 continue
 
-            # --- INTERPOLAÇÃO NO SPAN (eixo X) ---
+            # --- interpolação eixo X ---
             for x in range(x_start_int, x_end_int):
                 # Fator de interpolação horizontal
                 factor = (x - x_start) / span_width
@@ -186,6 +181,16 @@ def paintTexturedPolygon(superficie, vertices_uv, texture):
                 # Calcula UV final para este pixel
                 u_final = int(u_start + (u_end - u_start) * factor)
                 v_final = int(v_start + (v_end - v_start) * factor)
+
+                if method == 'standard':
+                    # Clamp para evitar sair da textura
+                    u_final = max(0, min(u_final, tex_width - 1))
+                    v_final = max(0, min(v_final, tex_height - 1))
+                elif method == 'tiling':
+                    # Tiling (repetição da textura)
+                    # Em vez de definiir min/max, usa módulo
+                    u_final = u_final % tex_width
+                    v_final = v_final % tex_height 
 
                 # Proteção de limites da textura
                 u_final = max(0, min(u_final, tex_width - 1))

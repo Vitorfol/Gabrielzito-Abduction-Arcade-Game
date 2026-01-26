@@ -2,7 +2,7 @@ class Prize:
     def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.size = 12
+        self.size = 60
         self.captured = False
         self.speed = 2
         self.direction = 1
