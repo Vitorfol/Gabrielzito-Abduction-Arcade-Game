@@ -17,7 +17,7 @@ class GameLoop:
     pipeline de renderização dos polígonos na tela.
     """
     
-    def __init__(self, width, height, difficulty):
+    def __init__(self, width, height, difficulty: Difficulty):
         """
         Inicializa uma nova sessão de jogo.
         
@@ -28,9 +28,13 @@ class GameLoop:
         """
         self.width = width
         self.height = height
+
+        if not isinstance(difficulty, Difficulty):
+            raise TypeError("difficulty must be a Difficulty instance")
+
         self.difficulty = difficulty
-        
-        print(f"Iniciando jogo com: {difficulty.level}")
+
+        print(f"Iniciando jogo com: {self.difficulty.name}")
         
         # Instancia o 'Modelo' do jogo (Física e Estado)
         # TODO: Passar parâmetros de dificuldade para World (num_prizes, prize_speed)
