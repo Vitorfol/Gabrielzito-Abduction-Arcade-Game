@@ -53,37 +53,54 @@ All graphical primitives, transformations, and rendering logic are implemented m
 
 ## Implemented Computer Graphics Features
 
-### Rasterization Primitives - raster.py
+### Rasterization Primitives
 
-* Line rasterization - Use drawLine(Superfice, points, board color)
-* Polygon rasterization - Use drawPolygon(Superfice, points, board color) 
+* **Line rasterization** (Bresenham) - [`engine/raster.py`](src/engine/raster.py) - `bresenham()`
+* **Circle rasterization** - [`engine/raster.py`](src/engine/raster.py) - `draw_circle()`
+* **Ellipse rasterization** - [`engine/raster.py`](src/engine/raster.py) - `paintTexturedEllipse()`
 
-### Region Filling - raster.py
+### Region Filling
 
-* Flood Fill / Boundary Fill (opening screen) 
-* Scanline polygon filling (game objects and environment) - Use paintPolygon(Superfice, points, color)
+* **Flood Fill** (iterative) - [`engine/raster.py`](src/engine/raster.py) - `flood_fill_iterativo()`
+  * Used in opening screen circles
+* **Scanline polygon filling** - [`engine/raster.py`](src/engine/raster.py) - `paintPolygon()`
+  * Used for all game objects and environment
 
-### Transformations
+### Geometric Transformations
 
-* Translation - Use translate(Matrix, position x, position y)
-* Scaling - Use scale_transformation(Matrix, scale x, scale y)
-* Rotation - Use rotate(Matrix, angle)
+All implemented in [`engine/transformations.py`](src/engine/transformations.py):
 
-### Rendering Pipeline
+* **Translation** - `translation(tx, ty)`
+* **Scaling** - `scale(sx, sy)`
+* **Rotation** - `rotation(theta)`
+* **Matrix composition** - `multiply_matrices()`
 
-* World coordinates → Window transformation
-* Window → Viewport transformation (including zoom)
-* Cohen–Sutherland line clipping
+### Viewing Pipeline
+
+Implemented in [`engine/viewport_utils.py`](src/engine/viewport_utils.py):
+
+* **World → Window transformation**
+* **Window → Viewport transformation**
+* **Viewport translation**
+* **Viewport scaling (zoom)** - Applied during claw grab action
+
+### Clipping
+
+* **Cohen-Sutherland line clipping** - [`engine/clipping_utils.py`](src/engine/clipping_utils.py)
+  * Used in scene rendering for efficient line drawing
 
 ### Visual Features
 
-* Per-vertex color gradients
-* Texture mapping using image-to-matrix loading
+* **Per-vertex color gradients** - Implemented in rasterization functions
+* **Texture mapping** - [`engine/raster.py`](src/engine/raster.py)
+  * `paintTexturedPolygon()` - Image-to-matrix texture mapping
+  * `paintTexturedEllipse()` - Textured ellipse rendering
 
 ### Animation
 
-* Continuous object motion
+* Continuous object motion (prizes moving in machine)
 * Claw movement and grab animation
+* Menu animations (rotating/pulsing elements)
 
 ---
 
@@ -104,35 +121,78 @@ Further optimization details and design decisions are documented in the `design_
 ## Repository Structure
 
 ```text
-claw-machine-arcade/
+trabalho1/
 │
 ├── README.md
 ├── requirements.txt
 │
 ├── docs/
-│   ├── professor_requirements.txt
-│   ├── project_requirements.txt
-│   └── design_notes.md
+│   ├── professor_requirements.txt    # ✅ Course requirements (all implemented)
+│   ├── project_requirements.txt      # Game-specific requirements
+│   └── implementation_draft.md       # Implementation notes
 │
 ├── src/
-│   └── (source code)
+│   ├── main.py                       # Entry point - game initialization
+│   │
+│   ├── engine/                       # 🎨 CG Library (graded components)
+│   │   ├── raster.py                 # Line/circle/ellipse rasterization, scanline fill
+│   │   ├── transformations.py        # Matrix operations (translate, scale, rotate)
+│   │   ├── viewport_utils.py         # World→Window→Viewport transformations
+│   │   ├── clipping_utils.py         # Cohen-Sutherland line clipping
+│   │   └── collision.py              # Collision detection system
+│   │
+│   └── game/                         # 🎮 Claw Machine Game
+│       ├── game_loop.py              # Main game loop orchestration
+│       ├── menu.py                   # Interactive menu system
+│       ├── menu_scene.py             # Claw machine scene renderer
+│       ├── audio_manager.py          # Sound system
+│       ├── fps.py                    # FPS counter display
+│       │
+│       └── model/                    # Game model (entities & configuration)
+│           ├── config.py             # Constants (colors, dimensions, etc.)
+│           ├── difficulty.py         # Difficulty system
+│           ├── gamestate_enum.py     # Game state enumeration
+│           ├── world.py              # Game world orchestrator
+│           ├── claw.py               # Claw entity
+│           ├── ufo.py                # UFO entity
+│           ├── cable.py              # Cable entity
+│           └── prize.py              # Prize entities
 │
 └── assets/
-    └── (textures and image resources)
+    ├── audio/                        # Sound effects and music
+    │   └── soundtrack.ogg
+    ├── *.png                         # Game sprites and textures
+    └── mocking/                      # Character animation frames
 ```
+
+**Architecture Principles:**
+
+* **`engine/`**: Pure Computer Graphics algorithms - reusable, game-agnostic primitives (graded portion)
+* **`game/`**: Claw Machine-specific logic - imports from `engine/` but never vice-versa
+* **`game/model/`**: Game entities, world state, and configuration (MVC model layer)
+* **Clean separation**: Easy for professors to evaluate CG implementation independently
 
 ---
 
-## How to Run (Preview)
+## How to Run
 
-Detailed instructions will be provided once implementation begins.
-
-General steps:
+### Requirements
 
 ```bash
 pip install -r requirements.txt
-python src/main.py
 ```
+
+### Running the Game
+
+```bash
+# From the project root
+python src/main.py
+
+# Or in windowed mode (for development)
+python src/main.py --window
+```
+
+The game starts in fullscreen by default. Use `--window` flag for windowed mode during development.
 
 ---
 

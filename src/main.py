@@ -4,12 +4,12 @@ Gerencia estados do jogo (Menu, Jogando, Explicação).
 """
 import sys
 import pygame
-from menu import Menu
-from core.game_loop import GameLoop
-from enums.gamestate import GameState
-from enums.difficulty import Difficulty
-from constants import *
-from audio_manager import play_soundtrack
+from game.menu import Menu
+from game.game_loop import GameLoop
+from game.model.gamestate_enum import GameState
+from game.model.difficulty import Difficulty
+from game.model.config import *
+from game.audio_manager import play_soundtrack
 
 pygame.init()
 
@@ -84,7 +84,7 @@ while running:
     elif current_state == GameState.MOVE:
         game_loop.render(screen)
 
-    from fps import show_fps
+    from game.fps import show_fps
     show_fps(screen, clock)
     pygame.display.flip()
 

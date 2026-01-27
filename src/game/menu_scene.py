@@ -4,9 +4,9 @@ Usado tanto no menu quanto na tela de explicação.
 Otimizado para usar PixelArray (acesso direto à memória).
 """
 import pygame
-from clipping_utils import cohen_sutherland
-from raster import drawPolygon, paintPolygon, drawLine
-from constants import COLOR_BG_SCENE, COLOR_FLOOR, COLOR_WALL, COLOR_METAL, COLOR_GLASS_REFLECTION
+from engine.clipping_utils import cohen_sutherland
+from engine.raster import drawPolygon, paintPolygon, drawLine
+from game.model.config import COLOR_BG_SCENE, COLOR_FLOOR, COLOR_WALL, COLOR_METAL, COLOR_GLASS_REFLECTION
 
 
 class ClawMachineScene:

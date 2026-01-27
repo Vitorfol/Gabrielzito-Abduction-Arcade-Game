@@ -1,11 +1,11 @@
 import pygame
 import random
-from systems.colision import simple_grab
-from entities.cable import Cable
-from entities.ufo import UFO
-from entities.prize import Prize
-from entities.claw import Claw
-from enums.gamestate import GameState
+from engine.collision import simple_grab
+from game.model.cable import Cable
+from game.model.ufo import UFO
+from game.model.prize import Prize
+from game.model.claw import Claw
+from game.model.gamestate_enum import GameState
 
 class World:
     """

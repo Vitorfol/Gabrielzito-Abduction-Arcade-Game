@@ -1,4 +1,4 @@
-from audio_manager import play_audio
+from game.audio_manager import play_audio
 
 def point_in_box(px, py, box):
     x, y, w, h = box

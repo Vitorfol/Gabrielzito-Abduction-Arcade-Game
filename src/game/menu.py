@@ -4,11 +4,20 @@ Inclui navegação por teclado, seleção de dificuldade e animações nos canto
 """
 import pygame
 import math
-from raster import drawPolygon, paintPolygon, draw_circle, flood_fill_iterativo, paintTexturedPolygon
-from transformations import rotation, scale, multiply_matrices, apply_matrix_to_point
-from scenes.claw_machine_scene import ClawMachineScene
-from constants import *
-from audio_manager import play_audio
+import os
+from engine.raster import drawPolygon, paintPolygon, draw_circle, flood_fill_iterativo, paintTexturedPolygon
+from engine.transformations import rotation, scale, multiply_matrices, apply_matrix_to_point
+from game.menu_scene import ClawMachineScene
+from game.model.config import *
+from game.audio_manager import play_audio
+
+
+def _resolve_asset_path(filename):
+    """Helper: Resolve absolute path to asset file"""
+    # Get project root (three levels up from game/menu.py: game/ -> src/ -> root/)
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    asset_path = os.path.join(base_path, "..", "..", "assets", filename)
+    return os.path.normpath(asset_path)
 
 
 class TargetCircle:
@@ -220,7 +229,7 @@ class TexturedEllipse:
     
     def render(self, pixel_array, screen_width, screen_height):
         """Renderiza elipse texturizada (aproximada por polígono)"""
-        from raster import paintTexturedPolygon
+        from engine.raster import paintTexturedPolygon
         
         # Aproximar elipse com polígono de 16 lados
         num_segments = 16
@@ -335,10 +344,10 @@ class Menu:
         # Elementos texturizados nos cantos
         margin = ROTATING_BOX_MARGIN
         self.corner_elements = [
-            TexturedBox(margin, margin, "../assets/mocking/gabriel-mocking4.png"),                    # Superior esquerdo
-            TexturedEllipse(width - margin, margin, "../assets/ufo.png", base_rx=40, base_ry=25),     # Superior direito (UFO)
-            TexturedBox(margin, height - margin, "../assets/gabriel-frente.png"),                     # Inferior esquerdo
-            TexturedBox(width - margin - 110, height - margin, "../assets/gabriel.png")               # Inferior direito (MOVIDO)
+            TexturedBox(margin, margin, _resolve_asset_path("mocking/gabriel-mocking4.png")),                    # Superior esquerdo
+            TexturedEllipse(width - margin, margin, _resolve_asset_path("ufo.png"), base_rx=40, base_ry=25),     # Superior direito (UFO)
+            TexturedBox(margin, height - margin, _resolve_asset_path("gabriel-frente.png")),                     # Inferior esquerdo
+            TexturedBox(width - margin - 110, height - margin, _resolve_asset_path("gabriel.png"))               # Inferior direito (MOVIDO)
         ]
         
         # Círculo alvo no canto inferior direito (posição original)

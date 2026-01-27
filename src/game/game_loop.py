@@ -3,13 +3,22 @@ Módulo principal do loop de jogo.
 Contém a lógica de renderização e orquestração da atualização do jogo.
 """
 import pygame
-from raster import drawPolygon, paintPolygon, rect_to_polygon, paintTexturedEllipse, paintTexturedPolygon
-from entities.world import World
-from enums.difficulty import Difficulty
-import constants as const
-from viewport_utils import viewport_window
-from transformations import multiply_matrix_vector
-from constants import COLOR_TRANSITION, COLOR_TITLE, COLOR_TEXT_SELECTED, COLOR_TEXT, FONT_SIZE_LARGE, FONT_SIZE_MEDIUM
+import os
+from engine.raster import drawPolygon, paintPolygon, rect_to_polygon, paintTexturedEllipse, paintTexturedPolygon
+from game.model.world import World
+from game.model.difficulty import Difficulty
+from game.model import config as const
+from engine.viewport_utils import viewport_window
+from engine.transformations import multiply_matrix_vector
+from game.model.config import COLOR_TRANSITION, COLOR_TITLE, COLOR_TEXT_SELECTED, COLOR_TEXT, FONT_SIZE_LARGE, FONT_SIZE_MEDIUM
+
+
+def _resolve_asset_path(filename):
+    """Helper: Resolve absolute path to asset file"""
+    # Get project root (three levels up from engine/game_loop.py: engine/ -> src/ -> root/)
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    asset_path = os.path.join(base_path, "..", "..", "assets", filename)
+    return os.path.normpath(asset_path)
 
 class GameLoop:
     """
@@ -216,7 +225,7 @@ class GameLoop:
     def load_textures(self):
         """Carrega imagens e converte para matrizes numéricas (list of lists)."""
         # 1. Carrega Imagens
-        bg_surf = pygame.image.load("../assets/pelourinho.png")
+        bg_surf = pygame.image.load(_resolve_asset_path("pelourinho.png"))
         # OTIMIZAÇÃO CRÍTICA: Cache do background em Surface (blit é ~100x mais rápido)
         # Renderiza o background UMA VEZ em resolução cheia, depois usa blit() todo frame
         bg_matrix, bg_w, bg_h = self.surface_to_matrix(bg_surf)
@@ -235,11 +244,11 @@ class GameLoop:
                 vertices_bg, bg_matrix, bg_w, bg_h, 'standard'
             )
         
-        ufo_surf = pygame.image.load("../assets/ufo.png")
-        prize_surf = pygame.image.load("../assets/gabriel.png")
-        cable_surf = pygame.image.load("../assets/cable.png")
-        claw_surf = pygame.image.load("../assets/claw.png")
-        claw_open_surf = pygame.image.load("../assets/claw_open.png")
+        ufo_surf = pygame.image.load(_resolve_asset_path("ufo.png"))
+        prize_surf = pygame.image.load(_resolve_asset_path("gabriel.png"))
+        cable_surf = pygame.image.load(_resolve_asset_path("cable.png"))
+        claw_surf = pygame.image.load(_resolve_asset_path("claw.png"))
+        claw_open_surf = pygame.image.load(_resolve_asset_path("claw_open.png"))
 
         # 2. Converte para Matrizes (Acesso Rápido)
         self.ufo_matrix, self.ufo_w, self.ufo_h = self.surface_to_matrix(ufo_surf)
