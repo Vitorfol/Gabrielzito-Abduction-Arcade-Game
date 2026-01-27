@@ -2,7 +2,7 @@ class Cable:
     def __init__(self, ufo, claw):
         self.ufo = ufo
         self.claw = claw
-        self.width = 18
+        self.width = 12
 
     def get_rect(self):
         # Converte floats para ints para renderizar
