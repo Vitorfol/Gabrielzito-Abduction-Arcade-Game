@@ -1,4 +1,5 @@
 import pygame
+import random
 from systems.colision import simple_grab
 from entities.cable import Cable
 from entities.ufo import UFO
@@ -11,10 +12,15 @@ class World:
     Gerencia o estado global do jogo, contendo todas as entidades (UFO, Garra, Prêmios)
     e a lógica principal de interação e atualização física.
     """
-    def __init__(self, width, height):
+    def __init__(self, width, height, difficulty):
         """
         Inicializa o mundo do jogo com dimensões específicas e instancia
         os objetos iniciais e o estado da máquina de estados.
+        
+        Args:
+            width (int): Largura da tela
+            height (int): Altura da tela
+            difficulty (Difficulty): Instância da classe Difficulty
         """
         self.width = width
         self.height = height
@@ -25,11 +31,39 @@ class World:
 
         self.state = GameState.MOVE 
 
-        self.prizes = [
-            Prize(400, 450),
-            Prize(200, 450),
-            Prize(600, 450),
-        ]
+        # Cria gabrielzitos dinamicamente baseado na dificuldade
+        self.prizes = []
+        num_prizes = difficulty.num_prizes
+        prize_y = 490  # Posição Y fixa (mais abaixo para melhor visual)
+        
+        # Distribui gabrielzitos em posições aleatórias sem sobreposição
+        spacing = width // (num_prizes + 1)
+        min_x = 50
+        max_x = width - 50
+        min_gap = 80  # distância mínima entre gabrielzitos (px)
+        for i in range(num_prizes):
+            attempts = 0
+            prize_x = None
+            while attempts < 200:
+                candidate = random.randint(min_x, max_x)
+                if all(abs(candidate - p.x) >= min_gap for p in self.prizes):
+                    prize_x = candidate
+                    break
+                attempts += 1
+
+            # Fallback: usar espaçamento regular se não encontrou posição válida
+            if prize_x is None:
+                prize_x = spacing * (i + 1)
+
+            prize = Prize(prize_x, prize_y)
+            # Aplica velocidade individual do array de dificuldade
+            prize.speed = difficulty.prize_speeds[i]
+            self.prizes.append(prize)
+        
+        # Mostra gabrielzitos criados
+        print(f"{num_prizes} gabrielzitos")
+        for i, p in enumerate(self.prizes):
+            print(f"  Gabrielzito {i+1}: pos=({p.x}, {p.y}), speed={p.speed:.2f}")
 
     def handle_input_trigger(self):
         """

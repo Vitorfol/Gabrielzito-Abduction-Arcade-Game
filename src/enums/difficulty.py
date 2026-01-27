@@ -17,16 +17,16 @@ class Difficulty:
     # Configurações de dificuldade (nome: (range_gabrielzitos, range_velocidade))
     CONFIGS = {
         "EASY": {
-            "num_prizes_range": (1, 2),        # 1-2 Gabrielzitos
-            "prize_speed_range": (0.7, 0.9)    # 70-90% da velocidade base
+            "num_prizes_range": (1, 3),        # 1-3 Gabrielzitos
+            "prize_speed_range": (1.0, 1.5)    # 100-150% da velocidade base
         },
         "NORMAL": {
-            "num_prizes_range": (2, 3),        # 2-3 Gabrielzitos
-            "prize_speed_range": (0.9, 1.1)    # 90-110% da velocidade base
+            "num_prizes_range": (3, 5),        # 3-5 Gabrielzitos
+            "prize_speed_range": (1.5, 2.5)    # 150-250% da velocidade base
         },
         "HARD": {
-            "num_prizes_range": (3, 4),        # 3-4 Gabrielzitos
-            "prize_speed_range": (1.2, 1.5)    # 120-150% da velocidade base
+            "num_prizes_range": (5, 6),        # 5-6 Gabrielzitos
+            "prize_speed_range": (2.5, 3.5)    # 250-350% da velocidade base
         }
     }
     

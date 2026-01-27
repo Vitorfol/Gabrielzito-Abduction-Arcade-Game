@@ -39,8 +39,7 @@ class GameLoop:
         print(f"Iniciando jogo com: {self.difficulty.name}")
         
         # Instancia o 'Modelo' do jogo (Física e Estado)
-        # TODO: Passar parâmetros de dificuldade para World (num_prizes, prize_speed)
-        self.world = World(width, height)
+        self.world = World(width, height, self.difficulty)
 
         # Carrega texturas e converte para MATRIZES (Regra de Performance)
         self.load_textures()
