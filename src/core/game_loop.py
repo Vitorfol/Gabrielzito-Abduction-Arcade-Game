@@ -49,7 +49,7 @@ class GameLoop:
         self.show_hitbox = True
 
         self.inventory_window = (0, 100, 100, 0)        # espaço lógico
-        self.inventory_viewport = (width-60, 20, width, 80)  # 60x60 px
+        self.inventory_viewport = (width-80, 20, width, 100)  # 80x80 px
         self.VW_inventory = viewport_window(
             self.inventory_window,
             self.inventory_viewport

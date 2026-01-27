@@ -4,6 +4,7 @@ Usado tanto no menu quanto na tela de explicação.
 Otimizado para usar PixelArray (acesso direto à memória).
 """
 import pygame
+from clipping_utils import cohen_sutherland
 from raster import drawPolygon, paintPolygon, drawLine
 from constants import COLOR_BG_SCENE, COLOR_FLOOR, COLOR_WALL, COLOR_METAL, COLOR_GLASS_REFLECTION
 
@@ -46,8 +47,7 @@ class ClawMachineScene:
             paintPolygon(px_array, floor_poly, self.floor_color)
             
             # Linhas de detalhe no chão (padronagem)
-            for i in range(0, self.width, 40):
-                drawLine(px_array, i, self.floor_y, i, self.height, (80, 60, 120))
+            self.render_floor_lines(px_array)
             
             # Paredes laterais (simulando profundidade)
             # Parede esquerda
@@ -75,25 +75,34 @@ class ClawMachineScene:
             
             # Moldura do vidro (bordas metálicas)
             self._render_frame(px_array)
-        
+
+    def render_floor_lines(self, px_array):
+        xmin, ymin = 0, 0
+        xmax, ymax = self.width - 1, self.height - 1
+        for i in range(0, self.width, 40):
+                x1, y1 = i, self.floor_y
+                x2, y2 = i, self.height
+                clipped, cx1, cy1, cx2, cy2 = cohen_sutherland(
+                    x1, y1, x2, y2,
+                    xmin, ymin, xmax, ymax
+                )
+                if clipped:
+                    drawLine(px_array, cx1, cy1, cx2, cy2, (80, 60, 120))
+
     def _render_glass_effect(self, px_array):
-        """Renderiza efeito de vidro com linhas de reflexo usando PixelArray"""
-        # Linhas diagonais sutis simulando reflexo
+        xmin, ymin = 0, 0
+        xmax, ymax = self.width - 1, self.height - 1
+
         for i in range(0, self.width + self.height, 80):
-            x1 = i
-            y1 = 0
-            x2 = i - self.height
-            y2 = self.height
-            
-            # Garantir que as linhas ficam dentro da tela
-            if x1 > self.width:
-                y1 = x1 - self.width
-                x1 = self.width
-            if x2 < 0:
-                y2 = y2 + x2
-                x2 = 0
-                
-            drawLine(px_array, x2, y2, x1, y1, (120, 170, 220, 30))
+            x1, y1 = i, 0
+            x2, y2 = i - self.height, self.height
+
+            clipped, cx1, cy1, cx2, cy2 = cohen_sutherland(
+                x1, y1, x2, y2,
+                xmin, ymin, xmax, ymax
+            )
+            if clipped:
+                drawLine(px_array, cx1, cy1, cx2, cy2, (120, 170, 220, 30))
     
     def _render_frame(self, px_array):
         """Renderiza moldura metálica ao redor do vidro usando PixelArray"""
