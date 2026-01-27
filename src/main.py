@@ -24,7 +24,7 @@ screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), flags)
 pygame.display.set_caption("Claw Machine Game")
 clock = pygame.time.Clock()
 
-play_soundtrack(volume=0.5)
+play_soundtrack(volume=0.25)
 
 # Sistema de dificuldade (instância global)
 current_difficulty = Difficulty("NORMAL")

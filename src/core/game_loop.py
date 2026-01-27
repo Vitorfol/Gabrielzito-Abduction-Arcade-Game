@@ -77,8 +77,9 @@ class GameLoop:
         Renderiza o frame atual. Limpa a tela e desenha as entidades.
         Usa PixelArray para cumprir a regra de "Set Pixel" com performance.
         """
-        screen.fill(const.COLOR_BG_DARK)
-
+        # Background estático (usa blit otimizado ao invés de repintar todo frame)
+        screen.blit(self.bg_cache, (0, 0))
+        
         # LOCK da superfície para acesso direto à memória (MUITO mais rápido que set_at)
         with pygame.PixelArray(screen) as px_array:
             
@@ -194,6 +195,25 @@ class GameLoop:
     def load_textures(self):
         """Carrega imagens e converte para matrizes numéricas (list of lists)."""
         # 1. Carrega Imagens
+        bg_surf = pygame.image.load("../assets/pelourinho.png")
+        # OTIMIZAÇÃO CRÍTICA: Cache do background em Surface (blit é ~100x mais rápido)
+        # Renderiza o background UMA VEZ em resolução cheia, depois usa blit() todo frame
+        bg_matrix, bg_w, bg_h = self.surface_to_matrix(bg_surf)
+        
+        # Renderiza background em Surface cache (uma vez só)
+        self.bg_cache = pygame.Surface((self.width, self.height))
+        with pygame.PixelArray(self.bg_cache) as px_array:
+            vertices_bg = [
+                (0, 0, 0, 0),
+                (self.width, 0, bg_w, 0),
+                (self.width, self.height, bg_w, bg_h),
+                (0, self.height, 0, bg_h)
+            ]
+            paintTexturedPolygon(
+                px_array, self.width, self.height,
+                vertices_bg, bg_matrix, bg_w, bg_h, 'standard'
+            )
+        
         ufo_surf = pygame.image.load("../assets/ufo.png")
         prize_surf = pygame.image.load("../assets/gabriel.png")
         cable_surf = pygame.image.load("../assets/cable.png")
