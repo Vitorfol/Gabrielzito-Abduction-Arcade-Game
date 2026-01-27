@@ -9,6 +9,7 @@ from enums.difficulty import Difficulty
 import constants as const
 from viewport_utils import viewport_window
 from transformations import multiply_matrix_vector
+from constants import COLOR_TRANSITION, COLOR_TITLE, COLOR_TEXT_SELECTED, COLOR_TEXT, FONT_SIZE_LARGE, FONT_SIZE_MEDIUM
 
 class GameLoop:
     """
@@ -30,6 +31,9 @@ class GameLoop:
         """
         self.width = width
         self.height = height
+        self.start_time = pygame.time.get_ticks()
+        self.duration = 5000
+        self.game_over = False
 
         if not isinstance(difficulty, Difficulty):
             raise TypeError("difficulty must be a Difficulty instance")
@@ -59,17 +63,32 @@ class GameLoop:
         Processa eventos discretos de input.
         """
         if event.type == pygame.KEYDOWN:
+            if not self.game_over:
+                return self.handle_normal_input(event)
+            else:
+                return self.game_over_input(event)
+        return None
+    
+    def handle_normal_input(self, event):
             if event.key == pygame.K_SPACE:
                 self.world.handle_input_trigger()
             elif event.key == pygame.K_ESCAPE:
                 return "BACK_TO_MENU"
+            
+    def game_over_input(self, event):
+        if self.game_over and event.key == pygame.K_RETURN:
+            return "RESTART_GAME"
+        elif self.game_over and event.key == pygame.K_ESCAPE:
+            return "BACK_TO_MENU"
         return None
     
     def update(self, keys):
         """
         Avança um frame na simulação do jogo.
         """
-        self.world.update(keys)
+        if not self.game_over:
+            self.game_over = self.check_defeat()
+            self.world.update(keys)
     
     def render(self, screen):
         """
@@ -164,6 +183,9 @@ class GameLoop:
                     )
 
             self.render_inventory(px_array)
+
+        # Renderiza o timer do jogo
+        self.render_timer(screen)
 
     def render_cable(self, px_array):
         """
@@ -273,3 +295,54 @@ class GameLoop:
                 self.prize_matrix, self.prize_w, self.prize_h,
                 'standard'
             )
+
+    def check_defeat(self):
+        """Verifica se o tempo do jogo acabou."""
+        current_time = pygame.time.get_ticks()
+        elapsed = current_time - self.start_time
+        if elapsed >= self.duration:
+            return True
+        return False
+    
+    def render_timer(self, screen):
+        elapsed = pygame.time.get_ticks() - self.start_time
+        remaining = max(0, self.duration - elapsed)
+
+        seconds = remaining // 1000
+        centiseconds = (remaining % 1000) // 10
+
+        timer_text = f"{seconds:02}:{centiseconds:02}"
+
+        font = pygame.font.SysFont(None, 36)
+        text_surf = font.render(timer_text, True, (255, 255, 255))
+        screen.blit(text_surf, (20, 20))
+
+    def render_game_over(self, screen):
+        # Overlay no padrão do menu
+        overlay = pygame.Surface((self.width, self.height))
+        overlay.set_alpha(220)
+        overlay.fill(COLOR_TRANSITION)
+        screen.blit(overlay, (0, 0))
+
+        # Fontes no padrão do menu
+        font_title = pygame.font.Font(None, FONT_SIZE_LARGE)
+        font_text = pygame.font.Font(None, FONT_SIZE_MEDIUM)
+
+        # Textos
+        title = font_title.render("TEMPO ESGOTADO", True, COLOR_TITLE)
+        restart = font_text.render("ENTER - JOGAR NOVAMENTE", True, COLOR_TEXT_SELECTED)
+        menu = font_text.render("ESC - VOLTAR AO MENU", True, COLOR_TEXT)
+
+        # Posições
+        screen.blit(
+            title,
+            title.get_rect(center=(self.width // 2, self.height // 2 - 80))
+        )
+        screen.blit(
+            restart,
+            restart.get_rect(center=(self.width // 2, self.height // 2))
+        )
+        screen.blit(
+            menu,
+            menu.get_rect(center=(self.width // 2, self.height // 2 + 50))
+        )

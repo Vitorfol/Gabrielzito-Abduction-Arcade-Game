@@ -61,6 +61,9 @@ while running:
                 menu = Menu(SCREEN_WIDTH, SCREEN_HEIGHT)  # Reiniciar menu
                 game_loop = None
 
+            elif action == "RESTART_GAME":
+                game_loop = GameLoop(SCREEN_WIDTH, SCREEN_HEIGHT, current_difficulty)
+
     # ===== ATUALIZAÇÃO =====
     if current_state == GameState.MENU:
         menu.update()
