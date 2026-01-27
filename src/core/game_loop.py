@@ -30,6 +30,8 @@ class GameLoop:
         """
         self.width = width
         self.height = height
+        self.start_time = pygame.time.get_ticks()
+        self.duration = 60000
 
         if not isinstance(difficulty, Difficulty):
             raise TypeError("difficulty must be a Difficulty instance")
@@ -77,6 +79,7 @@ class GameLoop:
         Renderiza o frame atual. Limpa a tela e desenha as entidades.
         Usa PixelArray para cumprir a regra de "Set Pixel" com performance.
         """
+
         screen.fill(const.COLOR_BG_DARK)
 
         # LOCK da superfície para acesso direto à memória (MUITO mais rápido que set_at)
@@ -164,6 +167,9 @@ class GameLoop:
                     )
 
             self.render_inventory(px_array)
+
+        # Renderiza o timer do jogo
+        self.render_timer(screen)
 
     def render_cable(self, px_array):
         """
@@ -254,3 +260,24 @@ class GameLoop:
                 self.prize_matrix, self.prize_w, self.prize_h,
                 'standard'
             )
+
+    def check_defeat(self):
+        """Verifica se o tempo do jogo acabou."""
+        current_time = pygame.time.get_ticks()
+        elapsed = current_time - self.start_time
+        if elapsed >= self.duration:
+            return True
+        return False
+    
+    def render_timer(self, screen):
+        elapsed = pygame.time.get_ticks() - self.start_time
+        remaining = max(0, self.duration - elapsed)
+
+        seconds = remaining // 1000
+        centiseconds = (remaining % 1000) // 10
+
+        timer_text = f"{seconds:02}:{centiseconds:02}"
+
+        font = pygame.font.SysFont(None, 36)
+        text_surf = font.render(timer_text, True, (255, 255, 255))
+        screen.blit(text_surf, (20, 20))
