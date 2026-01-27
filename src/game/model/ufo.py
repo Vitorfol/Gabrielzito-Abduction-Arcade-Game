@@ -1,4 +1,5 @@
 class UFO:
+    """UFO com física de aceleração, fricção e velocidade máxima."""
     def __init__(self, x, y):
         self.x = x
         self.y = y
@@ -18,7 +19,7 @@ class UFO:
                 self.height)
     
     def apply_force(self, direction):
-        """Direction: -1 (left) or 1 (right)"""
+        """Aplica força de movimento no UFO (direction: -1 = esquerda, 1 = direita)."""
         self.velocity_x += direction * self.acceleration
         
         # Limit speed
@@ -28,7 +29,7 @@ class UFO:
             self.velocity_x = -self.max_speed
 
     def update_physics(self):
-        """Apply velocity and friction"""
+        """Atualiza posição aplicando velocidade e fricção."""
         self.x += self.velocity_x
         self.velocity_x *= self.friction
         

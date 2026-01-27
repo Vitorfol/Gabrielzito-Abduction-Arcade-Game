@@ -1,4 +1,5 @@
 class Claw:
+    """Garra mecânica com física (gravidade, motor) e estado de fechamento."""
     def __init__(self, x, y, ufo):
         self.ufo = ufo
         self.y = ufo.y + 50
@@ -29,17 +30,17 @@ class Claw:
                 self.grab_height)
 
     def drop(self):
-        """Apply gravity"""
+        """Aplica gravidade, fazendo a garra descer."""
         self.velocity_y += self.gravity
         self.y += self.velocity_y
 
     def lift(self):
-        """Apply motor force (constant speed)"""
+        """Aplica força do motor, puxando a garra para cima."""
         self.velocity_y = -self.motor_speed
         self.y += self.velocity_y
 
     def stop(self):
-        """Kill velocity (collision or stop)"""
+        """Para o movimento da garra (para colisão ou parada)."""
         self.velocity_y = 0
 
     def close(self):

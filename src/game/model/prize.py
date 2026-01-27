@@ -1,4 +1,5 @@
 class Prize:
+    """Prêmio (gabrielzito) que se move horizontalmente e pode ser capturado."""
     def __init__(self, x, y):
         self.x = x
         self.y = y

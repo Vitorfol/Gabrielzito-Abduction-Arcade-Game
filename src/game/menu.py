@@ -455,8 +455,7 @@ class Menu:
         # Renderizar cenário de fundo
         self.scene.render(screen)
         
-        # ===== RENDERIZAR TEXTURAS EM UM ÚNICO PIXELARRAY =====
-        # Usar um único PixelArray para todos os elementos texturizados (performance)
+        # Renderizar texturas em um único PixelArray (performance)
         with pygame.PixelArray(screen) as pixel_array:
             screen_width = screen.get_width()
             screen_height = screen.get_height()

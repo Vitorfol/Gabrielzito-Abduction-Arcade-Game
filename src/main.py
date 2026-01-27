@@ -38,7 +38,7 @@ running = True
 while running:
     clock.tick(TARGET_FPS)
 
-    # ===== PROCESSAMENTO DE EVENTOS =====
+    # Processamento de eventos
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -64,7 +64,7 @@ while running:
             elif action == "RESTART_GAME":
                 game_loop = GameLoop(SCREEN_WIDTH, SCREEN_HEIGHT, current_difficulty)
 
-    # ===== ATUALIZAÇÃO =====
+    # Atualização
     if current_state == GameState.MENU:
         menu.update()
         
@@ -77,7 +77,7 @@ while running:
         keys = pygame.key.get_pressed()
         game_loop.update(keys)
 
-    # ===== RENDERIZAÇÃO =====
+    # Renderização
     if current_state == GameState.MENU:
         menu.render(screen)
     

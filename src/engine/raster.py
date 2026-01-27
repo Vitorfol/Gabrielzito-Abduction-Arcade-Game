@@ -1,15 +1,11 @@
 import pygame
 
-# =========================
-# Converte retângulo (x, y, w, h) para lista de vértices de polígono.
-# =========================
 def rect_to_polygon(rect):
+    """
+    Converte retângulo (x, y, w, h) para lista de vértices de polígono.
+    """
     x, y, w, h = rect
     return [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
-
-# =========================
-# Primitivas (Pixel, Linha, Polígono) - Otimizado para PixelArray
-# =========================
 
 def setPixel(surface, x, y, color):
     """Safe setPixel that handles both Surface and PixelArray"""
@@ -25,7 +21,7 @@ def setPixel(surface, x, y, color):
 
 
 def bresenham(surface, x0, y0, x1, y1, color):
-    # Detecta se é PixelArray para otimização
+    """Desenha linha usando algoritmo de Bresenham. Detecta se é PixelArray para otimização."""
     x0 = round(x0); y0 = round(y0); x1 = round(x1); y1 = round(y1)
     is_pixel_array = isinstance(surface, pygame.PixelArray)
     if is_pixel_array:
@@ -77,14 +73,11 @@ def bresenham(surface, x0, y0, x1, y1, color):
         x += 1
 
 def drawLine(surface, x0, y0, x1, y1, color):
+    """Desenha linha entre dois pontos."""
     bresenham(surface, x0, y0, x1, y1, color)
 
-
-# =========================
-# Desenho do polígono
-# =========================
-
 def drawPolygon(surface, pontos, color):
+    """Desenha contorno de polígono."""
     pontos = polygon_to_int(pontos)
     n = len(pontos)
     for i in range(n):
@@ -92,11 +85,8 @@ def drawPolygon(surface, pontos, color):
         x1, y1 = pontos[(i + 1) % n]
         bresenham(surface, x0, y0, x1, y1, color)
 
-# =========================
-# Scanline Fill - Otimizado para PixelArray
-# =========================
 def paintPolygon(surface, pontos, color):
-    # Detecta tipo de superfície
+    """Preenche polígono usando algoritmo scanline. Otimizado para PixelArray."""
     is_pixel_array = isinstance(surface, pygame.PixelArray)
     if is_pixel_array:
         width, height = surface.shape
@@ -154,9 +144,6 @@ def paintPolygon(surface, pontos, color):
                     for x in range(x_start, x_end + 1):
                         surface.set_at((x, y), color)
 
-# =========================
-# Textured Polygon Fill
-# =========================
 def paintTexturedPolygon(pixel_array, screen_w, screen_h, vertices_uv, texture_matrix, tex_w, tex_h, method='standard'):
     """
     Optimized version using Direct Memory Access (PixelArray) and Texture Matrices.
@@ -272,12 +259,11 @@ def paintTexturedPolygon(pixel_array, screen_w, screen_h, vertices_uv, texture_m
                     cur_v += v_step
 
 def polygon_to_int(poly):
+    """Converte polígono de floats para inteiros arredondados."""
     return [(int(round(x)), int(round(y))) for x, y in poly]
 
-# =========================
-# Flood Fill (4-conectado)
-# =========================
 def flood_fill_iterativo(superficie, x, y, cor_preenchimento, cor_borda):
+    """Preenche área usando flood fill 4-conectado (pilha iterativa)."""
     largura = superficie.get_width()
     altura = superficie.get_height()
 
@@ -305,6 +291,7 @@ def flood_fill_iterativo(superficie, x, y, cor_preenchimento, cor_borda):
 # Adicione ao seu raster.py
 
 def draw_circle_points(surface, xc, yc, x, y, color):
+    """Espelha ponto nos 8 octantes do círculo."""
     # Espelha o ponto para os 8 octantes
     surface.set_at((xc + x, yc + y), color)
     surface.set_at((xc - x, yc + y), color)
@@ -374,7 +361,7 @@ def draw_ellipse(surface, center, rx, ry, color):
     two_rx2 = 2 * rx2
     two_ry2 = 2 * ry2
     
-    # ===== REGIÃO 1: Incrementa x até slope = -1 =====
+    # Região 1: Incrementa x até slope = -1
     # Condição: 2*b²*x < 2*a²*y
     
     # Parâmetro de decisão inicial P1 = b²(1) + a²(-b + 1/4)
@@ -404,7 +391,7 @@ def draw_ellipse(surface, center, rx, ry, color):
         
         draw_ellipse_points(surface, xc, yc, x, y, color)
     
-    # ===== REGIÃO 2: Decrementa y até y = 0 =====
+    # Região 2: Decrementa y até y = 0
     # Condição: 2*b²*x >= 2*a²*y (continua de onde Região 1 parou)
     
     # Parâmetro de decisão inicial P2 para Região 2

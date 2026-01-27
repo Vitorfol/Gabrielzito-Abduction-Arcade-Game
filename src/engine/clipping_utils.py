@@ -5,6 +5,7 @@ BOTTOM = 4
 TOP    = 8
 
 def codigo_regiao(x, y, xmin, ymin, xmax, ymax):
+    """Calcula código de região para algoritmo de Cohen-Sutherland."""
     code = INSIDE
     if x < xmin: code |= LEFT
     elif x > xmax: code |= RIGHT
@@ -13,6 +14,7 @@ def codigo_regiao(x, y, xmin, ymin, xmax, ymax):
     return code
 
 def cohen_sutherland(x0, y0, x1, y1, xmin, ymin, xmax, ymax):
+    """Recorta linha usando algoritmo de Cohen-Sutherland."""
     c0 = codigo_regiao(x0, y0, xmin, ymin, xmax, ymax)
     c1 = codigo_regiao(x1, y1, xmin, ymin, xmax, ymax)
 

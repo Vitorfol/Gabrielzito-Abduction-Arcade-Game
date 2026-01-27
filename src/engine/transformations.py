@@ -1,6 +1,7 @@
 import math
 
 def identity():
+    """Retorna matriz identidade 3x3."""
     return [
     [1, 0, 0],
     [0, 1, 0],
@@ -8,6 +9,7 @@ def identity():
     ]
 
 def translation(tx, ty):
+    """Retorna matriz de translação 3x3 para deslocamento (tx, ty)."""
     return [
     [1, 0, tx],
     [0, 1, ty],
@@ -15,6 +17,7 @@ def translation(tx, ty):
     ]
 
 def scale(sx, sy):
+    """Retorna matriz de escala 3x3 para fatores (sx, sy)."""
     return [
     [sx, 0, 0],
     [0, sy, 0],
@@ -22,6 +25,7 @@ def scale(sx, sy):
     ]
 
 def rotation(theta):
+    """Retorna matriz de rotação 3x3 para ângulo theta (em radianos)."""
     c = math.cos(theta)
     s = math.sin(theta)
     
@@ -32,9 +36,11 @@ def rotation(theta):
     ]
     
 def create_transformation():
+    """Cria matriz de transformação inicial (identidade)."""
     return identity()
 
 def multiply_matrices(A, B):
+    """Multiplica duas matrizes 3x3."""
     resultado = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
     
     for i in range(3):
@@ -64,6 +70,7 @@ def apply_matrix_to_point(point, matrix):
 
 
 def rotate(A, theta):
+    """Aplica rotação theta à matriz de transformação A (rotaciona em torno da posição atual)."""
     R = rotation(theta)
 
     # posição atual (tx, ty)
@@ -96,9 +103,11 @@ def multiply_matrix_vector(M, V):
 
 
 def translate(A, tx, ty):
+    """Aplica translação (tx, ty) à matriz de transformação A."""
     T = translation(tx, ty)
     return multiply_matrices(T, A)
 
 def scale_transformation(A, sx, sy):
+    """Aplica escala (sx, sy) à matriz de transformação A."""
     S = scale(sx, sy)
     return multiply_matrices(S, A)

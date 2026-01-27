@@ -1,4 +1,5 @@
 class Cable:
+    """Cabo que conecta UFO à garra, ajustando seu tamanho dinamicamente."""
     def __init__(self, ufo, claw):
         self.ufo = ufo
         self.claw = claw

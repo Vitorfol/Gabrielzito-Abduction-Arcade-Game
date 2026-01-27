@@ -3,7 +3,7 @@ Constantes globais do jogo.
 Centralizadas para evitar duplicação e facilitar ajustes.
 """
 
-# ===== CORES =====
+# Cores
 # Background
 COLOR_BG_DARK = (20, 20, 30)        # Cor de fundo escura principal
 COLOR_BG_SCENE = (25, 20, 35)       # Cor de fundo da cena (claw machine)
@@ -39,7 +39,7 @@ COLOR_ARROW = (255, 200, 100)       # Cor das setas
 # Transition - Transição entre estados
 COLOR_TRANSITION = (0, 0, 0)        # Cor do fade to black (preto)
 
-# ===== DIMENSÕES =====
+# Dimensões
 # Screen - Dimensões da janela do jogo
 SCREEN_WIDTH = 800                  # Largura da tela em pixels
 SCREEN_HEIGHT = 600                 # Altura da tela em pixels

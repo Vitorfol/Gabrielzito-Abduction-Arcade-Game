@@ -1,6 +1,7 @@
 from engine.transformations import identity, multiply_matrices, scale, translation
 
 def viewport_window(janela, viewport):
+    """Calcula matriz de transformação de janela (mundo) para viewport (tela)."""
     Wxmin, Wymin, Wxmax, Wymax = janela
     Vxmin, Vymin, Vxmax, Vymax = viewport
 
