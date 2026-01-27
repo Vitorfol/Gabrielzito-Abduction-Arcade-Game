@@ -7,6 +7,8 @@ from raster import drawPolygon, paintPolygon, rect_to_polygon, paintTexturedElli
 from entities.world import World
 from enums.difficulty import Difficulty
 import constants as const
+from viewport_utils import viewport_window
+from transformations import multiply_matrix_vector
 
 class GameLoop:
     """
@@ -45,6 +47,13 @@ class GameLoop:
         
         # Flags de Debug Visual
         self.show_hitbox = True
+
+        self.inventory_window = (0, 100, 100, 0)        # espaço lógico
+        self.inventory_viewport = (width-60, 20, width, 80)  # 60x60 px
+        self.VW_inventory = viewport_window(
+            self.inventory_window,
+            self.inventory_viewport
+        )
         
     def handle_input(self, event):
         """
@@ -154,6 +163,8 @@ class GameLoop:
                         'standard'
                     )
 
+            self.render_inventory(px_array)
+
     def render_cable(self, px_array):
         """
         Renderiza o cabo do UFO com textura repetida (Tiling).
@@ -207,3 +218,39 @@ class GameLoop:
                 col.append(surface.get_at((x, y)))
             matrix.append(col)
         return matrix, w, h
+    
+    def render_inventory(self, px_array):
+        """
+        Renderiza os prêmios capturados dentro da viewport do inventário.
+        """
+        captured = [p for p in self.world.prizes if p.captured]
+
+        for i, prize in enumerate(captured):
+            # posição lógica simples (grade)
+            col = i % 4
+            row = i // 4
+            x = 15 + col * 25
+            y = 15 + row * 25
+
+            half = prize.size // 2
+
+            vertices = [
+                (x - half, y - half, 0, 0),
+                (x + half, y - half, self.prize_w, 0),
+                (x + half, y + half, self.prize_w, self.prize_h),
+                (x - half, y + half, 0, self.prize_h)
+            ]
+
+            # 🔁 transforma para a viewport do inventário
+            vertices_t = []
+            for vx, vy, u, v in vertices:
+                P = [vx, vy, 1]
+                x_t, y_t, _ = multiply_matrix_vector(self.VW_inventory, P)
+                vertices_t.append((x_t, y_t, u, v))
+
+            paintTexturedPolygon(
+                px_array, self.width, self.height,
+                vertices_t,
+                self.prize_matrix, self.prize_w, self.prize_h,
+                'standard'
+            )

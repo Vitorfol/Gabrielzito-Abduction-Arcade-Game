@@ -7,8 +7,8 @@ class Claw:
         # Dimensões visuais
         self.width = 40
         self.height = 60
-        self.grab_width = 20
-        self.grab_height = 15
+        self.grab_width = 45
+        self.grab_height = 30
 
         # Física
         self.velocity_y = 0
