@@ -22,8 +22,11 @@ def setPixel(surface, x, y, color):
         if 0 <= x < surface.get_width() and 0 <= y < surface.get_height():
             surface.set_at((x, y), color)
 
+
+
 def bresenham(surface, x0, y0, x1, y1, color):
     # Detecta se é PixelArray para otimização
+    x0 = round(x0); y0 = round(y0); x1 = round(x1); y1 = round(y1)
     is_pixel_array = isinstance(surface, pygame.PixelArray)
     if is_pixel_array:
         w, h = surface.shape

@@ -7,6 +7,8 @@ from raster import drawPolygon, paintPolygon, rect_to_polygon, paintTexturedElli
 from entities.world import World
 from enums.difficulty import Difficulty
 import constants as const
+from viewport_utils import viewport_window
+from transformations import multiply_matrix_vector
 
 class GameLoop:
     """
@@ -28,6 +30,8 @@ class GameLoop:
         """
         self.width = width
         self.height = height
+        self.start_time = pygame.time.get_ticks()
+        self.duration = 60000
 
         if not isinstance(difficulty, Difficulty):
             raise TypeError("difficulty must be a Difficulty instance")
@@ -45,6 +49,13 @@ class GameLoop:
         
         # Flags de Debug Visual
         self.show_hitbox = True
+
+        self.inventory_window = (0, 100, 100, 0)        # espaço lógico
+        self.inventory_viewport = (width-80, 20, width, 100)  # 80x80 px
+        self.VW_inventory = viewport_window(
+            self.inventory_window,
+            self.inventory_viewport
+        )
         
     def handle_input(self, event):
         """
@@ -68,6 +79,7 @@ class GameLoop:
         Renderiza o frame atual. Limpa a tela e desenha as entidades.
         Usa PixelArray para cumprir a regra de "Set Pixel" com performance.
         """
+
         screen.fill(const.COLOR_BG_DARK)
 
         # LOCK da superfície para acesso direto à memória (MUITO mais rápido que set_at)
@@ -154,6 +166,11 @@ class GameLoop:
                         'standard'
                     )
 
+            self.render_inventory(px_array)
+
+        # Renderiza o timer do jogo
+        self.render_timer(screen)
+
     def render_cable(self, px_array):
         """
         Renderiza o cabo do UFO com textura repetida (Tiling).
@@ -207,3 +224,60 @@ class GameLoop:
                 col.append(surface.get_at((x, y)))
             matrix.append(col)
         return matrix, w, h
+    
+    def render_inventory(self, px_array):
+        """
+        Renderiza os prêmios capturados dentro da viewport do inventário.
+        """
+        captured = [p for p in self.world.prizes if p.captured]
+
+        for i, prize in enumerate(captured):
+            # posição lógica simples (grade)
+            col = i % 4
+            row = i // 4
+            x = 15 + col * 25
+            y = 15 + row * 25
+
+            half = prize.size // 2
+
+            vertices = [
+                (x - half, y - half, 0, 0),
+                (x + half, y - half, self.prize_w, 0),
+                (x + half, y + half, self.prize_w, self.prize_h),
+                (x - half, y + half, 0, self.prize_h)
+            ]
+
+            # 🔁 transforma para a viewport do inventário
+            vertices_t = []
+            for vx, vy, u, v in vertices:
+                P = [vx, vy, 1]
+                x_t, y_t, _ = multiply_matrix_vector(self.VW_inventory, P)
+                vertices_t.append((x_t, y_t, u, v))
+
+            paintTexturedPolygon(
+                px_array, self.width, self.height,
+                vertices_t,
+                self.prize_matrix, self.prize_w, self.prize_h,
+                'standard'
+            )
+
+    def check_defeat(self):
+        """Verifica se o tempo do jogo acabou."""
+        current_time = pygame.time.get_ticks()
+        elapsed = current_time - self.start_time
+        if elapsed >= self.duration:
+            return True
+        return False
+    
+    def render_timer(self, screen):
+        elapsed = pygame.time.get_ticks() - self.start_time
+        remaining = max(0, self.duration - elapsed)
+
+        seconds = remaining // 1000
+        centiseconds = (remaining % 1000) // 10
+
+        timer_text = f"{seconds:02}:{centiseconds:02}"
+
+        font = pygame.font.SysFont(None, 36)
+        text_surf = font.render(timer_text, True, (255, 255, 255))
+        screen.blit(text_surf, (20, 20))
