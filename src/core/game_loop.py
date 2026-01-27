@@ -32,7 +32,7 @@ class GameLoop:
         self.width = width
         self.height = height
         self.start_time = pygame.time.get_ticks()
-        self.duration = 5000
+        self.duration = 120000  # 2 minutos (120 segundos)
         self.game_over = False
 
         if not isinstance(difficulty, Difficulty):

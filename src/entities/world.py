@@ -37,9 +37,9 @@ class World:
         prize_y = 490  # Posição Y fixa (mais abaixo para melhor visual)
         
         # Distribui gabrielzitos em posições aleatórias sem sobreposição
-        spacing = width // (num_prizes + 1)
-        min_x = 50
-        max_x = width - 50
+        prize_half = 30  # metade do tamanho do gabrielzito (60/2)
+        min_x = 50 + prize_half  # garante margem + não ultrapassar borda
+        max_x = width - 50 - prize_half
         min_gap = 80  # distância mínima entre gabrielzitos (px)
         for i in range(num_prizes):
             attempts = 0
@@ -51,9 +51,10 @@ class World:
                     break
                 attempts += 1
 
-            # Fallback: usar espaçamento regular se não encontrou posição válida
+            # Fallback: usar espaçamento regular garantindo limites
             if prize_x is None:
-                prize_x = spacing * (i + 1)
+                spacing = (max_x - min_x) // (num_prizes + 1)
+                prize_x = min_x + spacing * (i + 1)
 
             prize = Prize(prize_x, prize_y)
             # Aplica velocidade individual do array de dificuldade
