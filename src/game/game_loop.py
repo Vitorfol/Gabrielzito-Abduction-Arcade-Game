@@ -110,21 +110,20 @@ class GameLoop:
         # Prepara da superfície para acesso direto à memória (mais rápido que set_at)
         with pygame.PixelArray(screen) as px_array:
             
+            # Cabo
+            self.render_cable(px_array)
+
             # UFO (Corpo + Borda) - ELIPSE
             ufo_hitbox = self.world.ufo.get_ellipse_hitbox()
             ufo_center = ufo_hitbox['center']
             ufo_rx = ufo_hitbox['rx']
             ufo_ry = ufo_hitbox['ry']
-            
             # Pinta o interior com a textura (Passando Matriz e Array)
             paintTexturedEllipse(
                 px_array, self.width, self.height, 
                 ufo_center, ufo_rx, ufo_ry, 
                 self.ufo_matrix, self.ufo_w, self.ufo_h
             )
-
-            # Cabo
-            self.render_cable(px_array)
 
             # Garra (Muda baseada no estado aberto/fechado)
             claw_rect = self.world.claw.get_rect()
