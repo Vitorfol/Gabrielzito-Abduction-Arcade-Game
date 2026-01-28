@@ -14,8 +14,8 @@ from game.model.config import COLOR_TRANSITION, COLOR_TITLE, COLOR_TEXT_SELECTED
 
 
 def _resolve_asset_path(filename):
-    """Helper: Resolve absolute path to asset file"""
-    # Get project root (three levels up from engine/game_loop.py: engine/ -> src/ -> root/)
+    """Helper: retorna caminho absoluto para assets"""
+    # Raiz do projeto
     base_path = os.path.dirname(os.path.abspath(__file__))
     asset_path = os.path.join(base_path, "..", "..", "assets", filename)
     return os.path.normpath(asset_path)
@@ -107,7 +107,7 @@ class GameLoop:
         # Background estático (usa blit otimizado ao invés de repintar todo frame)
         screen.blit(self.bg_cache, (0, 0))
         
-        # LOCK da superfície para acesso direto à memória (MUITO mais rápido que set_at)
+        # Prepara da superfície para acesso direto à memória (mais rápido que set_at)
         with pygame.PixelArray(screen) as px_array:
             
             # UFO (Corpo + Borda) - ELIPSE
@@ -117,77 +117,87 @@ class GameLoop:
             ufo_ry = ufo_hitbox['ry']
             
             # Pinta o interior com a textura (Passando Matriz e Array)
-            # Nota: Você precisa atualizar paintTexturedEllipse em raster.py para aceitar px_array
             paintTexturedEllipse(
                 px_array, self.width, self.height, 
                 ufo_center, ufo_rx, ufo_ry, 
                 self.ufo_matrix, self.ufo_w, self.ufo_h
             )
 
-            # Cabo (Passamos o px_array para o sub-metodo)
+            # Cabo
             self.render_cable(px_array)
 
             # Garra (Muda baseada no estado aberto/fechado)
-            #Get the geometry
             claw_rect = self.world.claw.get_rect()
             cx, cy, cw, ch = claw_rect
 
             # Escolhe a textura da garra com base no estado
             if self.world.claw.is_closed:
                 # Define vertices with UV Mapping (X, Y, U, V)
-                # U goes from 0 to texture_width (self.claw_w)
-                # V goes from 0 to texture_height (self.claw_h)
+                # U vai de 0 a texture_width (self.claw_w)
+                # V vai de 0 a texture_height (self.claw_h)
                 vertices_claw = [
-                    (cx,      cy,      0,           0),            # Top-Left
-                    (cx + cw, cy,      self.claw_w, 0),            # Top-Right
-                    (cx + cw, cy + ch, self.claw_w, self.claw_h),  # Bottom-Right
-                    (cx,      cy + ch, 0,           self.claw_h)   # Bottom-Left
+                    (cx,      cy,      0,           0),            # Topo esquerdo
+                    (cx + cw, cy,      self.claw_w, 0),            # Topo direito
+                    (cx + cw, cy + ch, self.claw_w, self.claw_h),  # Inferior direito
+                    (cx,      cy + ch, 0,           self.claw_h)   # Inferior esquerdo
                 ]
-
-                # Call the textured polygon function with the correct 4-tuple vertices
                 paintTexturedPolygon(
                     px_array, self.width, self.height, 
-                    vertices_claw,  # Passing the new list with UVs
+                    vertices_claw,  # Nova lista com UVs
                     self.claw_matrix, self.claw_w, self.claw_h, 
                     'standard'
                 )
             else:
-                # Define vertices with UV Mapping (X, Y, U, V)
+                # Define vertices com UV Mapping (X, Y, U, V)
                 vertices_claw_open = [
-                    (cx,      cy,      0,               0),                  # Top-Left
-                    (cx + cw, cy,      self.claw_open_w, 0),                 # Top-Right
-                    (cx + cw, cy + ch, self.claw_open_w, self.claw_open_h),  # Bottom-Right
-                    (cx,      cy + ch, 0,               self.claw_open_h)    # Bottom-Left
+                    (cx,      cy,      0,               0),                  # Topo esquerdo
+                    (cx + cw, cy,      self.claw_open_w, 0),                 # Topo direito
+                    (cx + cw, cy + ch, self.claw_open_w, self.claw_open_h),  # Inferior direito
+                    (cx,      cy + ch, 0,               self.claw_open_h)    # Inferior esquerdo
                 ]
-
-                # Call the textured polygon function with the correct 4-tuple vertices
                 paintTexturedPolygon(
                     px_array, self.width, self.height, 
-                    vertices_claw_open,  # Passing the new list with UVs
+                    vertices_claw_open,  # Nova lista com UVs
                     self.claw_open_matrix, self.claw_open_w, self.claw_open_h, 
                     'standard'
                 )
 
-            # Prêmios não capturados
+            # Prêmios (Gabrielzitos) - Animação por frame
             for prize in self.world.prizes:
                 if not prize.captured:
                     half = prize.size // 2
                     p_x = prize.x
                     p_y = prize.y
-
-                    # Vértices do prêmio
-                    vertices_prize = [
-                        (p_x - half, p_y - half, 0,  0),                # Topo Esq
-                        (p_x + half, p_y - half, self.prize_w, 0),      # Topo Dir
-                        (p_x + half, p_y + half, self.prize_w, self.prize_h), # Base Dir
-                        (p_x - half, p_y + half, 0,  self.prize_h)      # Base Esq
-                    ]
                     
-                    # Chama a versão otimizada com Matriz
+                    # Dados do frame atual da animação
+                    frame_idx = int(prize.frame_index)
+                    # Verificação de segurança (índice válido)
+                    frame_idx = frame_idx % len(self.prize_assets)
+                    
+                    current_asset = self.prize_assets[frame_idx]
+                    current_matrix = current_asset['matrix']
+                    current_w = current_asset['w']
+                    current_h = current_asset['h']
+
+                    # Determina coordenadas UV (Flipa com direção) e dimensões
+                    if prize.direction == 1:
+                        u_left = 0
+                        u_right = current_w
+                    else:
+                        u_left = current_w
+                        u_right = 0
+
+                    # Define vertices 
+                    vertices_prize = [
+                        (p_x - half, p_y - half, u_left,  0),            
+                        (p_x + half, p_y - half, u_right, 0),            
+                        (p_x + half, p_y + half, u_right, current_h), 
+                        (p_x - half, p_y + half, u_left,  current_h)  
+                    ]
                     paintTexturedPolygon(
                         px_array, self.width, self.height, 
                         vertices_prize, 
-                        self.prize_matrix, self.prize_w, self.prize_h, 
+                        current_matrix, current_w, current_h, 
                         'standard'
                     )
 
@@ -226,8 +236,8 @@ class GameLoop:
         """Carrega imagens e converte para matrizes numéricas (list of lists)."""
         # 1. Carrega Imagens
         bg_surf = pygame.image.load(_resolve_asset_path("pelourinho.png"))
-        # OTIMIZAÇÃO CRÍTICA: Cache do background em Surface (blit é ~100x mais rápido)
-        # Renderiza o background UMA VEZ em resolução cheia, depois usa blit() todo frame
+        # OTIMIZAÇÃO: Cache do background em Surface (blit é ~100x mais rápido)
+        # Renderiza o background uma vez, depois usa blit() todo frame
         bg_matrix, bg_w, bg_h = self.surface_to_matrix(bg_surf)
         
         # Renderiza background em Surface cache (uma vez só)
@@ -243,16 +253,31 @@ class GameLoop:
                 px_array, self.width, self.height,
                 vertices_bg, bg_matrix, bg_w, bg_h, 'standard'
             )
+
+        self.prize_assets = []
+        self.prize_w = 0
+        self.prize_h = 0
+        # Carrega step1.png até step12.png (animação de movimento)
+        for i in range(1, 13):
+            fname = f"gabrielzito/movement/step{i}.png"
+            surf = pygame.image.load(_resolve_asset_path(fname))
+            
+            # Converte cada frame para matriz
+            matrix, w, h = self.surface_to_matrix(surf)
+            # Guarda a largura/altura de cada imagem
+            self.prize_assets.append({
+                'matrix': matrix,
+                'w': w,
+                'h': h
+            })
         
         ufo_surf = pygame.image.load(_resolve_asset_path("ufo.png"))
-        prize_surf = pygame.image.load(_resolve_asset_path("gabriel.png"))
         cable_surf = pygame.image.load(_resolve_asset_path("cable.png"))
         claw_surf = pygame.image.load(_resolve_asset_path("claw.png"))
         claw_open_surf = pygame.image.load(_resolve_asset_path("claw_open.png"))
 
         # 2. Converte para Matrizes (Acesso Rápido)
         self.ufo_matrix, self.ufo_w, self.ufo_h = self.surface_to_matrix(ufo_surf)
-        self.prize_matrix, self.prize_w, self.prize_h = self.surface_to_matrix(prize_surf)
         self.cable_matrix, self.cable_w, self.cable_h = self.surface_to_matrix(cable_surf)
         self.claw_matrix, self.claw_w, self.claw_h = self.surface_to_matrix(claw_surf)
         self.claw_open_matrix, self.claw_open_w, self.claw_open_h = self.surface_to_matrix(claw_open_surf)
@@ -274,6 +299,12 @@ class GameLoop:
         Renderiza os prêmios capturados dentro da viewport do inventário.
         """
         captured = [p for p in self.world.prizes if p.captured]
+        if not self.prize_assets: return # Verificação de segurança
+
+        icon_asset = self.prize_assets[0]
+        icon_matrix = icon_asset['matrix']
+        icon_w = icon_asset['w']
+        icon_h = icon_asset['h']
 
         for i, prize in enumerate(captured):
             # posição lógica simples (grade)
@@ -286,12 +317,12 @@ class GameLoop:
 
             vertices = [
                 (x - half, y - half, 0, 0),
-                (x + half, y - half, self.prize_w, 0),
-                (x + half, y + half, self.prize_w, self.prize_h),
-                (x - half, y + half, 0, self.prize_h)
+                (x + half, y - half, icon_w, 0),
+                (x + half, y + half, icon_w, icon_h),
+                (x - half, y + half, 0, icon_h)
             ]
 
-            # 🔁 transforma para a viewport do inventário
+            # transforma para a viewport do inventário
             vertices_t = []
             for vx, vy, u, v in vertices:
                 P = [vx, vy, 1]
@@ -301,7 +332,7 @@ class GameLoop:
             paintTexturedPolygon(
                 px_array, self.width, self.height,
                 vertices_t,
-                self.prize_matrix, self.prize_w, self.prize_h,
+                icon_matrix, icon_w, icon_h,
                 'standard'
             )
 

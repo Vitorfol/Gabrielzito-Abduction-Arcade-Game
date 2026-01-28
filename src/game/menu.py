@@ -56,32 +56,31 @@ class TargetCircle:
             self.scale_factor = self.min_scale
             self.scale_direction = 1
     
-    def render(self, screen):
-        """Renderiza o alvo com 3 anéis concêntricos"""
-        # Calcula raios dos 3 anéis com escala aplicada
+    def render(self, pixel_array):
+        """
+        Renderiza o alvo. 
+        Recebe 'pixel_array'.
+        """
+        # Calcula raios
         radii = [
-            int(self.base_radius * self.scale_factor),         # Externo
-            int(self.base_radius * 0.66 * self.scale_factor),  # Médio
-            int(self.base_radius * 0.33 * self.scale_factor),  # Centro
+            int(self.base_radius * self.scale_factor),
+            int(self.base_radius * 0.66 * self.scale_factor),
+            int(self.base_radius * 0.33 * self.scale_factor),
         ]
         
-        # Desenha do maior para o menor (de fora para dentro)
+        # Desenha do maior para o menor
         for i, radius in enumerate(radii):
             if radius > 0:
-                # Desenha borda do círculo
-                draw_circle(screen, (self.center_x, self.center_y), 
+                # 1. Desenha borda (função otimizada do raster.py)
+                draw_circle(pixel_array, (self.center_x, self.center_y), 
                            radius, self.border_color)
                 
-                # Preenche com flood fill (usa cor do anel correspondente)
-                # Inverte índice: anel externo usa ring_colors[2], centro usa [0]
+                # 2. Preenche
                 fill_color = self.ring_colors[2 - i]
                 
-                # Flood fill a partir do centro de cada anel
-                try:
-                    flood_fill_iterativo(screen, self.center_x, self.center_y, 
-                                       fill_color, self.border_color)
-                except:
-                    pass  # Evita crash se flood fill falhar
+                # REMOVIDO O TRY/EXCEPT para podermos ver erros se existirem
+                flood_fill_iterativo(pixel_array, self.center_x, self.center_y, 
+                                   fill_color, self.border_color)
 
 
 class TexturedBox:
@@ -144,10 +143,10 @@ class TexturedBox:
         # UVs em coordenadas de textura absolutas (0 a tex_w, 0 a tex_h)
         half_size = self.base_size / 2
         vertices_local = [
-            (-half_size, -half_size, 0, 0),                      # top-left
-            (half_size, -half_size, self.tex_w, 0),              # top-right
-            (half_size, half_size, self.tex_w, self.tex_h),      # bottom-right
-            (-half_size, half_size, 0, self.tex_h)               # bottom-left
+            (-half_size, -half_size, 0, 0),                      # Topo esquerdo
+            (half_size, -half_size, self.tex_w, 0),              # topo direito
+            (half_size, half_size, self.tex_w, self.tex_h),      # inferior direito
+            (-half_size, half_size, 0, self.tex_h)               # inferior esquerdo
         ]
         
         # Aplicar transformações: escala -> rotação -> translação
@@ -455,7 +454,8 @@ class Menu:
         # Renderizar cenário de fundo
         self.scene.render(screen)
         
-        # Renderizar texturas em um único PixelArray (performance)
+        # OTIMIZAÇÃO: Usar um único PixelArray para todas as operações de pixel
+        # Isso evita lock/unlock repetitivo da superfície
         with pygame.PixelArray(screen) as pixel_array:
             screen_width = screen.get_width()
             screen_height = screen.get_height()
@@ -463,26 +463,22 @@ class Menu:
             # Renderizar elementos texturizados nos cantos
             for element in self.corner_elements:
                 element.render(pixel_array, screen_width, screen_height)
+            
+            # Renderizar círculo alvo (Agora dentro do PixelArray context)
+            self.target_circle.render(pixel_array)
         
-        # Renderizar círculo alvo (não usa textura)
-        self.target_circle.render(screen)
-        
-        # Título
+        # Título e Textos (Blit normal deve ser fora do PixelArray ou em cópia)
         title_text = self.title_font.render("GABRIELZITO MACHINE", True, self.title_color)
         title_rect = title_text.get_rect(center=(self.width // 2, 80))
         screen.blit(title_text, title_rect)
         
         if self.in_difficulty_menu:
-            # Renderizar submenu de dificuldade
             self._render_difficulty_menu(screen)
         elif self.in_guia_menu:
-            # Renderizar submenu de guia
             self._render_guia_menu(screen)
         else:
-            # Renderizar opções do menu principal
             self._render_main_menu(screen)
         
-        # Renderizar overlay de transição
         if self.transitioning:
             self._render_transition(screen)
     

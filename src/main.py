@@ -13,7 +13,7 @@ from game.audio_manager import play_soundtrack
 
 pygame.init()
 
-# Allow running in windowed mode with `--window`; default remains fullscreen
+# Permitir rodar em modo janela com `--window`; o padrão continua sendo fullscreen
 windowed = "--window" in sys.argv or "--WINDOW" in sys.argv
 if windowed:
     flags = pygame.SCALED | pygame.RESIZABLE
