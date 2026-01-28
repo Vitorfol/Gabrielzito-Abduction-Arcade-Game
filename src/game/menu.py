@@ -2,6 +2,7 @@
 Sistema de menu interativo para o Claw Machine Game.
 Inclui navegação por teclado, seleção de dificuldade e animações nos cantos.
 """
+import sys
 import pygame
 import math
 import os
@@ -198,8 +199,6 @@ class TexturedEllipse:
     
     def _load_texture(self, path):
         """Carrega PNG e converte para matriz de textura"""
-    def _load_texture(self, path):
-        """Carrega PNG e converte para matriz de textura"""
         try:
             surf = pygame.image.load(path)
             w, h = surf.get_width(), surf.get_height()
@@ -264,11 +263,15 @@ class TexturedEllipse:
 class DifficultySelector:
     """Submenu de seleção de dificuldade com navegação horizontal"""
     
-    def __init__(self, x, y):
+    def __init__(self, x, y, current_difficulty="NORMAL"):
         self.x = x
         self.y = y
         self.difficulties = ["EASY", "NORMAL", "HARD"]
-        self.selected_index = 1  # Começa em NORMAL
+        # Iniciar com a dificuldade atual
+        try:
+            self.selected_index = self.difficulties.index(current_difficulty)
+        except ValueError:
+            self.selected_index = 1  # Fallback para NORMAL
         
         # Layout
         self.spacing = MENU_DIFFICULTY_SPACING
@@ -319,13 +322,14 @@ class Menu:
         self.scene = ClawMachineScene(width, height)
         
         # Opções do menu
-        self.options = ["JOGAR", "DIFICULDADE", "GUIA"]
+        self.options = ["JOGAR", "DIFICULDADE", "GUIA", "SAIR"]
         self.selected_index = 0
         
         # Estado do menu
         self.in_difficulty_menu = False
         self.in_guia_menu = False
-        self.difficulty_selector = DifficultySelector(width // 2, height // 2 + 80)
+        self.current_difficulty = "NORMAL"  # Armazenar dificuldade atual
+        self.difficulty_selector = DifficultySelector(width // 2, height // 2 + 80, self.current_difficulty)
         
         # Layout
         self.option_spacing = MENU_OPTION_SPACING
@@ -374,13 +378,18 @@ class Menu:
         # Se estamos no submenu de dificuldade
         if self.in_difficulty_menu:
             if self.difficulty_selector.handle_input(event):
+                # Atualizar a dificuldade atual quando o usuário navega
+                self.current_difficulty = self.difficulty_selector.get_selected_difficulty()
                 # Retornar indicação de que dificuldade mudou
                 return "DIFFICULTY_CHANGED"
             
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN or event.key == pygame.K_ESCAPE:
+                    # Salvar a dificuldade selecionada antes de sair
+                    self.current_difficulty = self.difficulty_selector.get_selected_difficulty()
                     self.in_difficulty_menu = False
-                    return None
+                    # Retornar indicação de que dificuldade pode ter mudado
+                    return "DIFFICULTY_CHANGED"
         else:
             # Menu principal
             if event.type == pygame.KEYDOWN:
@@ -404,6 +413,8 @@ class Menu:
             self.start_transition()
             return "PLAY"
         elif selected_option == "DIFICULDADE":
+            # Recriar o seletor de dificuldade com a dificuldade atual
+            self.difficulty_selector = DifficultySelector(self.width // 2, self.height // 2 + 80, self.current_difficulty)
             # Abrir submenu de dificuldade (agora LEFT/RIGHT funcionam)
             self.in_difficulty_menu = True
             return None
@@ -411,6 +422,10 @@ class Menu:
             # Abrir submenu de guia
             self.in_guia_menu = True
             return None
+        elif selected_option == "SAIR":
+            # Sair do jogo
+            pygame.quit()
+            sys.exit()
         
         return None
     
@@ -448,6 +463,10 @@ class Menu:
     def get_selected_difficulty(self):
         """Retorna a dificuldade selecionada"""
         return self.difficulty_selector.get_selected_difficulty()
+    
+    def set_current_difficulty(self, difficulty):
+        """Define a dificuldade atual do menu"""
+        self.current_difficulty = difficulty
     
     def render(self, screen):
         """Renderiza o menu completo"""

@@ -12,7 +12,7 @@ class World:
     Gerencia o estado global do jogo, contendo todas as entidades (UFO, Garra, Prêmios)
     e a lógica principal de interação e atualização física.
     """
-    def __init__(self, width, height, difficulty):
+    def __init__(self, width, height, difficulty, debug=False):
         """
         Inicializa o mundo do jogo com dimensões específicas e instancia
         os objetos iniciais e o estado da máquina de estados.
@@ -21,9 +21,11 @@ class World:
             width (int): Largura da tela
             height (int): Altura da tela
             difficulty (Difficulty): Instância da classe Difficulty
+            debug (bool): Se True, exibe informações de debug
         """
         self.width = width
         self.height = height
+        self.debug = debug
 
         self.ufo = UFO(width // 2, 100)
         self.claw = Claw(self.ufo.x, self.ufo.y + 50, self.ufo)
@@ -61,10 +63,11 @@ class World:
             prize.speed = difficulty.prize_speeds[i]
             self.prizes.append(prize)
         
-        # Mostra gabrielzitos criados
-        print(f"{num_prizes} gabrielzitos")
-        for i, p in enumerate(self.prizes):
-            print(f"  Gabrielzito {i+1}: pos=({p.x}, {p.y}), speed={p.speed:.2f}")
+        # Mostra gabrielzitos criados (somente em modo debug)
+        if self.debug:
+            print(f"{num_prizes} gabrielzitos")
+            for i, p in enumerate(self.prizes):
+                print(f"  Gabrielzito {i+1}: pos=({p.x}, {p.y}), speed={p.speed:.2f}")
 
     def handle_input_trigger(self):
         """

@@ -11,6 +11,9 @@ from game.model.difficulty import Difficulty
 from game.model.config import *
 from game.audio_manager import play_soundtrack
 
+# Flag de debug (ativada com --debug)
+DEBUG_MODE = "--debug" in sys.argv or "--DEBUG" in sys.argv
+
 pygame.init()
 
 # Permitir rodar em modo janela com `--window`; o padrão continua sendo fullscreen
@@ -51,6 +54,7 @@ while running:
             if action == "DIFFICULTY_CHANGED":
                 difficulty_name = menu.get_selected_difficulty()
                 current_difficulty = Difficulty(difficulty_name)
+                menu.set_current_difficulty(difficulty_name)
         
         # Estado: JOGANDO
         elif current_state == GameState.MOVE:
@@ -58,11 +62,13 @@ while running:
             
             if action == "BACK_TO_MENU":
                 current_state = GameState.MENU
-                menu = Menu(SCREEN_WIDTH, SCREEN_HEIGHT)  # Reiniciar menu
+                # Preservar a dificuldade ao recriar o menu
+                menu = Menu(SCREEN_WIDTH, SCREEN_HEIGHT)
+                menu.set_current_difficulty(current_difficulty.name)
                 game_loop = None
 
             elif action == "RESTART_GAME":
-                game_loop = GameLoop(SCREEN_WIDTH, SCREEN_HEIGHT, current_difficulty)
+                game_loop = GameLoop(SCREEN_WIDTH, SCREEN_HEIGHT, current_difficulty, debug=DEBUG_MODE)
 
     # Atualização
     if current_state == GameState.MENU:
@@ -70,7 +76,7 @@ while running:
         
         # Verificar se transição do menu completou
         if menu.is_transition_complete():
-            game_loop = GameLoop(SCREEN_WIDTH, SCREEN_HEIGHT, current_difficulty)
+            game_loop = GameLoop(SCREEN_WIDTH, SCREEN_HEIGHT, current_difficulty, debug=DEBUG_MODE)
             current_state = GameState.MOVE
     
     elif current_state == GameState.MOVE:

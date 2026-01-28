@@ -29,7 +29,7 @@ class GameLoop:
     pipeline de renderização dos polígonos na tela.
     """
     
-    def __init__(self, width, height, difficulty: Difficulty):
+    def __init__(self, width, height, difficulty: Difficulty, debug=False):
         """
         Inicializa uma nova sessão de jogo.
         
@@ -37,22 +37,25 @@ class GameLoop:
             width (int): Largura da tela
             height (int): Altura da tela
             difficulty (Difficulty): Instância da classe Difficulty
+            debug (bool): Se True, exibe informações de debug
         """
         self.width = width
         self.height = height
         self.start_time = pygame.time.get_ticks()
         self.duration = 120000  # 2 minutos (120 segundos)
         self.game_over = False
+        self.debug = debug
 
         if not isinstance(difficulty, Difficulty):
             raise TypeError("difficulty must be a Difficulty instance")
 
         self.difficulty = difficulty
 
-        print(f"Iniciando jogo com: {self.difficulty.name}")
+        if self.debug:
+            print(f"Iniciando jogo com: {self.difficulty.name}")
         
         # Instancia o 'Modelo' do jogo (Física e Estado)
-        self.world = World(width, height, self.difficulty)
+        self.world = World(width, height, self.difficulty, debug=self.debug)
 
         # Carrega texturas e converte para MATRIZES (Regra de Performance)
         self.load_textures()
