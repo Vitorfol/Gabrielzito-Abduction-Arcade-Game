@@ -11,6 +11,7 @@ from game.model import config as const
 from engine.viewport_utils import viewport_window
 from engine.transformations import multiply_matrix_vector
 from game.model.config import COLOR_TRANSITION, COLOR_TITLE, COLOR_TEXT_SELECTED, COLOR_TEXT, FONT_SIZE_LARGE, FONT_SIZE_MEDIUM
+from engine.raster import paintPolygon
 
 
 def _resolve_asset_path(filename):
@@ -350,14 +351,112 @@ class GameLoop:
         elapsed = pygame.time.get_ticks() - self.start_time
         remaining = max(0, self.duration - elapsed)
 
-        seconds = remaining // 1000
-        centiseconds = (remaining % 1000) // 10
+        # Converter para minutos e segundos
+        total_seconds = remaining // 1000
+        minutes = total_seconds // 60
+        seconds = total_seconds % 60
 
-        timer_text = f"{seconds:02}:{centiseconds:02}"
+        # Formatar como mm:ss
+        digit1 = minutes // 10
+        digit2 = minutes % 10
+        digit3 = seconds // 10
+        digit4 = seconds % 10
 
-        font = pygame.font.SysFont(None, 36)
-        text_surf = font.render(timer_text, True, (255, 255, 255))
-        screen.blit(text_surf, (20, 20))
+        # Posição inicial no canto superior direito
+        start_x = self.width - 180
+        start_y = 20
+        
+        # Renderizar os 4 dígitos + dois pontos
+        with pygame.PixelArray(screen) as px_array:
+            self._draw_7seg_digit(px_array, start_x, start_y, digit1)
+            self._draw_7seg_digit(px_array, start_x + 35, start_y, digit2)
+            self._draw_7seg_colon(px_array, start_x + 70, start_y)
+            self._draw_7seg_digit(px_array, start_x + 90, start_y, digit3)
+            self._draw_7seg_digit(px_array, start_x + 125, start_y, digit4)
+    
+    def _draw_7seg_digit(self, px_array, x, y, digit):
+        """Desenha um dígito no formato de display de 7 segmentos"""
+        
+        # Mapeamento de dígitos para segmentos ativos
+        # Segmentos: [top, top-right, bottom-right, bottom, bottom-left, top-left, middle]
+        segments_map = {
+            0: [1, 1, 1, 1, 1, 1, 0],
+            1: [0, 1, 1, 0, 0, 0, 0],
+            2: [1, 1, 0, 1, 1, 0, 1],
+            3: [1, 1, 1, 1, 0, 0, 1],
+            4: [0, 1, 1, 0, 0, 1, 1],
+            5: [1, 0, 1, 1, 0, 1, 1],
+            6: [1, 0, 1, 1, 1, 1, 1],
+            7: [1, 1, 1, 0, 0, 0, 0],
+            8: [1, 1, 1, 1, 1, 1, 1],
+            9: [1, 1, 1, 1, 0, 1, 1],
+        }
+        
+        segments = segments_map.get(digit, [0, 0, 0, 0, 0, 0, 0])
+        
+        # Dimensões dos segmentos
+        seg_width = 20
+        seg_height = 4
+        seg_length = 25
+        
+        color_on = (255, 255, 255)  # Branco para segmentos ativos
+        color_off = (50, 50, 50)    # Cinza escuro para segmentos inativos
+        
+        # Segmento superior (top)
+        if segments[0]:
+            poly = [(x + 5, y), (x + seg_width + 5, y), 
+                    (x + seg_width + 3, y + seg_height), (x + 7, y + seg_height)]
+            paintPolygon(px_array, poly, color_on)
+        
+        # Segmento superior direito (top-right)
+        if segments[1]:
+            poly = [(x + seg_width + 5, y + 2), (x + seg_width + 7, y + 4),
+                    (x + seg_width + 7, y + seg_length), (x + seg_width + 5, y + seg_length + 2)]
+            paintPolygon(px_array, poly, color_on)
+        
+        # Segmento inferior direito (bottom-right)
+        if segments[2]:
+            poly = [(x + seg_width + 5, y + seg_length + 3), (x + seg_width + 7, y + seg_length + 5),
+                    (x + seg_width + 7, y + 2 * seg_length + 3), (x + seg_width + 5, y + 2 * seg_length + 5)]
+            paintPolygon(px_array, poly, color_on)
+        
+        # Segmento inferior (bottom)
+        if segments[3]:
+            poly = [(x + 7, y + 2 * seg_length + 5), (x + seg_width + 3, y + 2 * seg_length + 5),
+                    (x + seg_width + 5, y + 2 * seg_length + 9), (x + 5, y + 2 * seg_length + 9)]
+            paintPolygon(px_array, poly, color_on)
+        
+        # Segmento inferior esquerdo (bottom-left)
+        if segments[4]:
+            poly = [(x + 3, y + seg_length + 5), (x + 5, y + seg_length + 3),
+                    (x + 5, y + 2 * seg_length + 5), (x + 3, y + 2 * seg_length + 3)]
+            paintPolygon(px_array, poly, color_on)
+        
+        # Segmento superior esquerdo (top-left)
+        if segments[5]:
+            poly = [(x + 3, y + 4), (x + 5, y + 2),
+                    (x + 5, y + seg_length + 2), (x + 3, y + seg_length)]
+            paintPolygon(px_array, poly, color_on)
+        
+        # Segmento do meio (middle)
+        if segments[6]:
+            poly = [(x + 5, y + seg_length + 2), (x + seg_width + 5, y + seg_length + 2),
+                    (x + seg_width + 5, y + seg_length + 6), (x + 5, y + seg_length + 6)]
+            paintPolygon(px_array, poly, color_on)
+    
+    def _draw_7seg_colon(self, px_array, x, y):
+        """Desenha os dois pontos separadores (:)"""
+        
+        color = (255, 255, 255)  # Branco
+        size = 3
+        
+        # Ponto superior
+        poly_top = [(x, y + 15), (x + size, y + 15), (x + size, y + 15 + size), (x, y + 15 + size)]
+        paintPolygon(px_array, poly_top, color)
+        
+        # Ponto inferior
+        poly_bottom = [(x, y + 35), (x + size, y + 35), (x + size, y + 35 + size), (x, y + 35 + size)]
+        paintPolygon(px_array, poly_bottom, color)
 
     def render_game_over(self, screen):
         # Overlay no padrão do menu
