@@ -4,7 +4,7 @@ Contém a lógica de renderização e orquestração da atualização do jogo.
 """
 import pygame
 import os
-from engine.raster import drawPolygon, paintPolygon, rect_to_polygon, paintTexturedEllipse, paintTexturedPolygon
+from engine.raster import drawPolygon, paintPolygon, rect_to_polygon, paintTexturedEllipse, paintTexturedPolygon, draw_text_raster
 from game.model.world import World
 from game.model.difficulty import Difficulty
 from game.model import config as const
@@ -108,12 +108,16 @@ class GameLoop:
         Renderiza o frame atual. Limpa a tela e desenha as entidades.
         Usa PixelArray para cumprir a regra de "Set Pixel" com performance.
         """
-        # Background estático (usa blit otimizado ao invés de repintar todo frame)
-        screen.blit(self.bg_cache, (0, 0))
         
-        # Prepara da superfície para acesso direto à memória (mais rápido que set_at)
+        # Lock da superfície para acesso direto à memória (mais rápido que set_at)
         with pygame.PixelArray(screen) as px_array:
             
+            # OTIMIZAÇÃO: Cópia de Memória do Background (Cache)
+            with pygame.PixelArray(self.bg_cache) as bg_array:
+                # Copia todos os pixels do cache para a tela
+                # [:] substitui todo o conteúdo do array de destino
+                px_array[:] = bg_array[:]
+
             # Cabo
             self.render_cable(px_array)
 
@@ -239,8 +243,8 @@ class GameLoop:
         """Carrega imagens e converte para matrizes numéricas (list of lists)."""
         # 1. Carrega Imagens
         bg_surf = pygame.image.load(_resolve_asset_path("pelourinho.png"))
-        # OTIMIZAÇÃO: Cache do background em Surface (blit é ~100x mais rápido)
-        # Renderiza o background uma vez, depois usa blit() todo frame
+        # OTIMIZAÇÃO: Cache do background em Surface (Evita reprocessar todo frame)
+        # Renderiza o background uma vez, depois usa cópia de memória
         bg_matrix, bg_w, bg_h = self.surface_to_matrix(bg_surf)
         
         # Renderiza background em Surface cache (uma vez só)
@@ -375,10 +379,9 @@ class GameLoop:
             self._draw_7seg_digit(px_array, start_x + 125, start_y, digit4)
     
     def _draw_7seg_digit(self, px_array, x, y, digit):
-        """Desenha um dígito no formato de display de 7 segmentos"""
+        """Desenha um dígito no formato de display de 7 segmentos (Mais curto e grosso)"""
         
         # Mapeamento de dígitos para segmentos ativos
-        # Segmentos: [top, top-right, bottom-right, bottom, bottom-left, top-left, middle]
         segments_map = {
             0: [1, 1, 1, 1, 1, 1, 0],
             1: [0, 1, 1, 0, 0, 0, 0],
@@ -394,96 +397,146 @@ class GameLoop:
         
         segments = segments_map.get(digit, [0, 0, 0, 0, 0, 0, 0])
         
-        # Dimensões dos segmentos
-        seg_width = 20
-        seg_height = 4
-        seg_length = 25
+        # --- NOVAS DIMENSÕES ---
+        seg_width = 20       # Largura total horizontal
+        seg_height = 6       # Espessura da barra horizontal (era 4)
+        seg_length = 14      # Altura da barra vertical (era 25) - ISSO ENCURTA O DÍGITO
+        thickness = 6        # Espessura visual das barras verticais
         
-        color_on = (255, 255, 255)  # Branco para segmentos ativos
-        color_off = (50, 50, 50)    # Cinza escuro para segmentos inativos
+        color_on = (255, 255, 255)
+        color_off = (50, 50, 50)
         
         # Segmento superior (top)
         if segments[0]:
-            poly = [(x + 5, y), (x + seg_width + 5, y), 
-                    (x + seg_width + 3, y + seg_height), (x + 7, y + seg_height)]
+            poly = [
+                (x + thickness, y), 
+                (x + seg_width + thickness, y), 
+                (x + seg_width + 2, y + seg_height), 
+                (x + thickness + 2, y + seg_height)
+            ]
             paintPolygon(px_array, poly, color_on)
         
         # Segmento superior direito (top-right)
         if segments[1]:
-            poly = [(x + seg_width + 5, y + 2), (x + seg_width + 7, y + 4),
-                    (x + seg_width + 7, y + seg_length), (x + seg_width + 5, y + seg_length + 2)]
+            poly = [
+                (x + seg_width + thickness, y + 2), 
+                (x + seg_width + thickness + thickness, y + 4),
+                (x + seg_width + thickness + thickness, y + seg_length + 2), 
+                (x + seg_width + thickness, y + seg_length + 4)
+            ]
             paintPolygon(px_array, poly, color_on)
         
         # Segmento inferior direito (bottom-right)
         if segments[2]:
-            poly = [(x + seg_width + 5, y + seg_length + 3), (x + seg_width + 7, y + seg_length + 5),
-                    (x + seg_width + 7, y + 2 * seg_length + 3), (x + seg_width + 5, y + 2 * seg_length + 5)]
+            poly = [
+                (x + seg_width + thickness, y + seg_length + 6), 
+                (x + seg_width + thickness + thickness, y + seg_length + 8),
+                (x + seg_width + thickness + thickness, y + 2 * seg_length + 6), 
+                (x + seg_width + thickness, y + 2 * seg_length + 8)
+            ]
             paintPolygon(px_array, poly, color_on)
         
         # Segmento inferior (bottom)
         if segments[3]:
-            poly = [(x + 7, y + 2 * seg_length + 5), (x + seg_width + 3, y + 2 * seg_length + 5),
-                    (x + seg_width + 5, y + 2 * seg_length + 9), (x + 5, y + 2 * seg_length + 9)]
+            poly = [
+                (x + thickness + 2, y + 2 * seg_length + 8), 
+                (x + seg_width + 2, y + 2 * seg_length + 8),
+                (x + seg_width + thickness, y + 2 * seg_length + 8 + seg_height), 
+                (x + thickness, y + 2 * seg_length + 8 + seg_height)
+            ]
             paintPolygon(px_array, poly, color_on)
         
         # Segmento inferior esquerdo (bottom-left)
         if segments[4]:
-            poly = [(x + 3, y + seg_length + 5), (x + 5, y + seg_length + 3),
-                    (x + 5, y + 2 * seg_length + 5), (x + 3, y + 2 * seg_length + 3)]
+            poly = [
+                (x, y + seg_length + 8), 
+                (x + thickness, y + seg_length + 6),
+                (x + thickness, y + 2 * seg_length + 8), 
+                (x, y + 2 * seg_length + 6)
+            ]
             paintPolygon(px_array, poly, color_on)
         
         # Segmento superior esquerdo (top-left)
         if segments[5]:
-            poly = [(x + 3, y + 4), (x + 5, y + 2),
-                    (x + 5, y + seg_length + 2), (x + 3, y + seg_length)]
+            poly = [
+                (x, y + 4), 
+                (x + thickness, y + 2),
+                (x + thickness, y + seg_length + 4), 
+                (x, y + seg_length + 2)
+            ]
             paintPolygon(px_array, poly, color_on)
         
         # Segmento do meio (middle)
         if segments[6]:
-            poly = [(x + 5, y + seg_length + 2), (x + seg_width + 5, y + seg_length + 2),
-                    (x + seg_width + 5, y + seg_length + 6), (x + 5, y + seg_length + 6)]
+            poly = [
+                (x + thickness + 2, y + seg_length + 2), 
+                (x + seg_width + 2, y + seg_length + 2),
+                (x + seg_width + thickness, y + seg_length + 2 + seg_height), 
+                (x + thickness, y + seg_length + 2 + seg_height)
+            ]
             paintPolygon(px_array, poly, color_on)
-    
+
     def _draw_7seg_colon(self, px_array, x, y):
-        """Desenha os dois pontos separadores (:)"""
+        """Desenha os dois pontos separadores (:) ajustados para a nova altura"""
         
-        color = (255, 255, 255)  # Branco
-        size = 3
+        color = (255, 255, 255)
+        size = 4 # Aumentei um pouco o tamanho do ponto (era 3)
         
-        # Ponto superior
-        poly_top = [(x, y + 15), (x + size, y + 15), (x + size, y + 15 + size), (x, y + 15 + size)]
+        # Ponto superior (Ajustado para o novo seg_length de 14)
+        poly_top = [(x, y + 10), (x + size, y + 10), (x + size, y + 10 + size), (x, y + 10 + size)]
         paintPolygon(px_array, poly_top, color)
         
-        # Ponto inferior
-        poly_bottom = [(x, y + 35), (x + size, y + 35), (x + size, y + 35 + size), (x, y + 35 + size)]
+        # Ponto inferior (Ajustado para o novo seg_length de 14)
+        poly_bottom = [(x, y + 25), (x + size, y + 25), (x + size, y + 25 + size), (x, y + 25 + size)]
         paintPolygon(px_array, poly_bottom, color)
 
     def render_game_over(self, screen):
-        # Overlay no padrão do menu
+        # 1. Desenha o Overlay (Fundo escuro)
         overlay = pygame.Surface((self.width, self.height))
         overlay.set_alpha(220)
         overlay.fill(COLOR_TRANSITION)
-        screen.blit(overlay, (0, 0))
 
-        # Fontes no padrão do menu
-        font_title = pygame.font.Font(None, FONT_SIZE_LARGE)
-        font_text = pygame.font.Font(None, FONT_SIZE_MEDIUM)
+        # 2. Configura as fontes
+        font_path = _resolve_asset_path("fonts/ThaleahFat.ttf")
+        
+        # Carrega fontes customizadas
+        try:
+            font_title = pygame.font.Font(font_path, 55)
+            font_text = pygame.font.Font(font_path, 35)
+        except FileNotFoundError:
+            # Fallback se esquecer de colocar o arquivo
+            font_title = pygame.font.Font(None, FONT_SIZE_LARGE)
+            font_text = pygame.font.Font(None, FONT_SIZE_MEDIUM)
 
-        # Textos
-        title = font_title.render("TEMPO ESGOTADO", True, COLOR_TITLE)
-        restart = font_text.render("ENTER - JOGAR NOVAMENTE", True, COLOR_TEXT_SELECTED)
-        menu = font_text.render("ESC - VOLTAR AO MENU", True, COLOR_TEXT)
+        # 3. Abre o contexto de acesso direto aos pixels
+        with pygame.PixelArray(screen) as px_array:
 
-        # Posições
-        screen.blit(
-            title,
-            title.get_rect(center=(self.width // 2, self.height // 2 - 80))
-        )
-        screen.blit(
-            restart,
-            restart.get_rect(center=(self.width // 2, self.height // 2))
-        )
-        screen.blit(
-            menu,
-            menu.get_rect(center=(self.width // 2, self.height // 2 + 50))
-        )
+            # OTIMIZAÇÃO: Cópia de Memória do Background (Cache)
+            with pygame.PixelArray(self.bg_cache) as bg_array:
+                px_array[:] = bg_array[:]
+
+            
+            # --- TÍTULO ---
+            text_title = "TEMPO ESGOTADO"
+            # Calcula largura/altura para centralizar
+            w, h = font_title.size(text_title) 
+            x = (self.width - w) // 2
+            y = (self.height // 2) - 80 - (h // 2)
+            
+            draw_text_raster(px_array, font_title, text_title, x, y, COLOR_TITLE)
+
+            # --- RESTART ---
+            text_restart = "ENTER - JOGAR NOVAMENTE"
+            w, h = font_text.size(text_restart)
+            x = (self.width - w) // 2
+            y = (self.height // 2) - (h // 2)
+            
+            draw_text_raster(px_array, font_text, text_restart, x, y, COLOR_TEXT_SELECTED)
+
+            # --- MENU ---
+            text_menu = "ESC - VOLTAR AO MENU"
+            w, h = font_text.size(text_menu)
+            x = (self.width - w) // 2
+            y = (self.height // 2) + 50 - (h // 2)
+            
+            draw_text_raster(px_array, font_text, text_menu, x, y, COLOR_TEXT)

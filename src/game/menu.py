@@ -6,7 +6,7 @@ import sys
 import pygame
 import math
 import os
-from engine.raster import drawPolygon, paintPolygon, draw_circle, flood_fill_iterativo, paintTexturedPolygon
+from engine.raster import drawPolygon, paintPolygon, draw_circle, flood_fill_iterativo, paintTexturedPolygon, draw_text_raster
 from engine.transformations import rotation, scale, multiply_matrices, apply_matrix_to_point
 from game.menu_scene import ClawMachineScene
 from game.model.config import *
@@ -297,18 +297,21 @@ class DifficultySelector:
         """Retorna a dificuldade selecionada"""
         return self.difficulties[self.selected_index]
     
-    def render(self, screen, font):
-        """Renderiza o seletor de dificuldade centralizado"""
+    def render(self, pixel_array, font):
+        """Renderiza o seletor de dificuldade usando rasterização direta"""
         # Calcular largura total para centralizar
         total_width = (len(self.difficulties) - 1) * self.spacing
         start_x = self.x - total_width // 2
         
-        # Renderizar cada opção (todas visíveis, só a selecionada em verde)
         for i, difficulty in enumerate(self.difficulties):
             color = self.selected_color if i == self.selected_index else self.text_color
-            text_surf = font.render(difficulty, True, color)
-            text_rect = text_surf.get_rect(center=(start_x + i * self.spacing, self.y))
-            screen.blit(text_surf, text_rect)
+            # Calcular dimensões e posição centralizada
+            w, h = font.size(difficulty)
+            # Posição X baseada no índice + offset para centralizar o texto
+            pos_x = (start_x + i * self.spacing) - (w // 2)
+            # Posição Y centralizada
+            pos_y = self.y - (h // 2)
+            draw_text_raster(pixel_array, font, difficulty, pos_x, pos_y, color)
 
 
 class Menu:
@@ -341,8 +344,17 @@ class Menu:
         self.title_color = COLOR_TITLE
         
         # Font
-        self.font = pygame.font.Font(None, FONT_SIZE_MEDIUM)
-        self.title_font = pygame.font.Font(None, FONT_SIZE_LARGE)
+        # Carrega a fonte customizada da pasta assets
+        font_path = _resolve_asset_path("fonts/ThaleahFat.ttf")
+        
+        # Ajuste os tamanhos (Fontes pixel art costumam parecer menores ou maiores)
+        # Font(caminho, tamanho)
+        self.font = pygame.font.Font(font_path, 35)       # Tamanho médio
+        self.title_font = pygame.font.Font(font_path, 55) # Título grande
+        # Se der erro ao carregar (arquivo não existe), usa a padrão como fallback
+        if not self.font:
+            self.font = pygame.font.Font(None, FONT_SIZE_MEDIUM)
+            self.title_font = pygame.font.Font(None, FONT_SIZE_LARGE)
         
         # Elementos texturizados nos cantos
         margin = ROTATING_BOX_MARGIN
@@ -470,91 +482,114 @@ class Menu:
     
     def render(self, screen):
         """Renderiza o menu completo"""
-        # Renderizar cenário de fundo
+        # 1. Renderizar cenário de fundo
         self.scene.render(screen)
         
-        # OTIMIZAÇÃO: Usar um único PixelArray para todas as operações de pixel
-        # Isso evita lock/unlock repetitivo da superfície
+        # 2. Renderizar elementos que exigem BLIT (Transparência/Alpha) ANTES de travar a tela
+        # Fundo do Guia (Caixa semitransparente)
+        if self.in_guia_menu:
+            box_x = 100
+            box_y = 170
+            box_w = self.width - 200
+            box_h = 320
+            box_surface = pygame.Surface((box_w, box_h))
+            box_surface.fill((40, 40, 50))
+            box_surface.set_alpha(220)
+            screen.blit(box_surface, (box_x, box_y))
+            # Desenha a borda (pode ser via pygame.draw ou raster, aqui mantemos o original por ser linha simples)
+            pygame.draw.rect(screen, COLOR_TEXT, pygame.Rect(box_x, box_y, box_w, box_h), 2)
+
+        # 3. Renderização por pixel (Texto e Polígonos)
+        # OTIMIZAÇÃO: Um único PixelArray para tudo
         with pygame.PixelArray(screen) as pixel_array:
             screen_width = screen.get_width()
             screen_height = screen.get_height()
             
-            # Renderizar elementos texturizados nos cantos
+            # Elementos texturizados nos cantos
             for element in self.corner_elements:
                 element.render(pixel_array, screen_width, screen_height)
             
-            # Renderizar círculo alvo (Agora dentro do PixelArray context)
+            # Círculo alvo
             self.target_circle.render(pixel_array)
         
-        # Título e Textos (Blit normal deve ser fora do PixelArray ou em cópia)
-        title_text = self.title_font.render("GABRIELZITO MACHINE", True, self.title_color)
-        title_rect = title_text.get_rect(center=(self.width // 2, 80))
-        screen.blit(title_text, title_rect)
+            # Título Principal "GABRIELZITO ABDUCTION"
+            title_str = "GABRIELZITO ABDUCTION"
+            tw, th = self.title_font.size(title_str)
+            tx = (self.width - tw) // 2
+            ty = 80 - (th // 2)
+            draw_text_raster(pixel_array, self.title_font, title_str, tx, ty, self.title_color)
+            
+            # Renderizar Submenus
+            if self.in_difficulty_menu:
+                self._render_difficulty_menu(pixel_array)
+            elif self.in_guia_menu:
+                self._render_guia_menu(pixel_array)
+            else:
+                self._render_main_menu(pixel_array)
         
-        if self.in_difficulty_menu:
-            self._render_difficulty_menu(screen)
-        elif self.in_guia_menu:
-            self._render_guia_menu(screen)
-        else:
-            self._render_main_menu(screen)
-        
+        # 4. Transição (Overlay precisa ser blit por causa do Alpha global)
         if self.transitioning:
             self._render_transition(screen)
     
-    def _render_main_menu(self, screen):
-        """Renderiza as opções do menu principal"""
+    def _render_main_menu(self, pixel_array):
+        """Renderiza as opções do menu principal via raster"""
         for i, option in enumerate(self.options):
             color = self.selected_color if i == self.selected_index else self.text_color
-            text_surf = self.font.render(option, True, color)
-            text_rect = text_surf.get_rect(center=(self.width // 2, self.start_y + i * self.option_spacing))
-            screen.blit(text_surf, text_rect)
+            # Calcula posição
+            w, h = self.font.size(option)
+            x = (self.width - w) // 2
+            y = self.start_y + i * self.option_spacing - (h // 2)
             
-            # Indicador de seleção (retângulo ao redor)
-            if i == self.selected_index:
+            draw_text_raster(pixel_array, self.font, option, x, y, color)
+            
+            if i == self.selected_index:    # Indicador de seleção (retângulo ao redor)
                 padding = 10
+                # Coordenadas do retângulo
+                rect_left = x - padding
+                rect_top = y - padding
+                rect_right = x + w + padding
+                rect_bottom = y + h + padding
                 rect_poly = [
-                    (text_rect.left - padding, text_rect.top - padding),
-                    (text_rect.right + padding, text_rect.top - padding),
-                    (text_rect.right + padding, text_rect.bottom + padding),
-                    (text_rect.left - padding, text_rect.bottom + padding)
+                    (rect_left, rect_top),
+                    (rect_right, rect_top),
+                    (rect_right, rect_bottom),
+                    (rect_left, rect_bottom)
                 ]
-                drawPolygon(screen, rect_poly, self.selected_color)
+                # drawPolygon usa bresenham, compatível com PixelArray
+                drawPolygon(pixel_array, rect_poly, self.selected_color)
     
-    def _render_difficulty_menu(self, screen):
-        """Renderiza o submenu de seleção de dificuldade"""
+    def _render_difficulty_menu(self, pixel_array):
+        """Renderiza o submenu de seleção de dificuldade via raster"""
         # Título do submenu
-        subtitle = self.font.render("SELECIONE A DIFICULDADE", True, self.title_color)
-        subtitle_rect = subtitle.get_rect(center=(self.width // 2, self.height // 2 - 50))
-        screen.blit(subtitle, subtitle_rect)
+        sub_text = "SELECIONE A DIFICULDADE"
+        w, h = self.font.size(sub_text)
+        x = (self.width - w) // 2
+        y = (self.height // 2 - 50) - (h // 2)
+        
+        draw_text_raster(pixel_array, self.font, sub_text, x, y, self.title_color)
         
         # Renderizar seletor
-        self.difficulty_selector.render(screen, self.font)
+        self.difficulty_selector.render(pixel_array, self.font)
     
-    def _render_guia_menu(self, screen):
-        """Renderiza o submenu de guia/explicação"""
-        # Título (mesmo tamanho do menu de dificuldade)
-        title = self.font.render("GUIA", True, self.title_color)
-        title_rect = title.get_rect(center=(self.width // 2, self.height // 2 - 160))
-        screen.blit(title, title_rect)
+    def _render_guia_menu(self, pixel_array):
+        """Renderiza o texto do guia via raster"""
+        # Título
+        title_text = "GUIA"
+        w, h = self.font.size(title_text)
+        x = (self.width - w) // 2
+        y = (self.height // 2 - 160) - (h // 2)
         
-        # Calcular dimensões da caixa de texto
-        box_padding = 40
+        draw_text_raster(pixel_array, self.font, title_text, x, y, self.title_color)
+        
+        # Configurações da caixa de texto
         box_x = 100
         box_y = 170
-        box_w = self.width - 200
-        box_h = 320
+        start_y = box_y + 25
+        line_spacing = 24
         
-        # Fundo cinza para facilitar leitura
-        box_surface = pygame.Surface((box_w, box_h))
-        box_surface.fill((40, 40, 50))
-        box_surface.set_alpha(220)
-        screen.blit(box_surface, (box_x, box_y))
-        
-        # Borda da caixa
-        pygame.draw.rect(screen, COLOR_TEXT, pygame.Rect(box_x, box_y, box_w, box_h), 2)
-        
-        # Descrição (multi-linha, mais formal baseada no README)
-        description_font = pygame.font.Font(None, 24)
+        # Carrega a fonte customizada da pasta assets
+        font_path = _resolve_asset_path("fonts/PixeloidSans.ttf")
+        description_font = pygame.font.Font(font_path, 15)
         description_lines = [
             "Gabrielzito Machine é um jogo arcade 2D inspirado nas clássicas",
             "máquinas de garra, desenvolvido para a disciplina de Computação",
@@ -562,20 +597,20 @@ class Menu:
             "tentando capturar gabrielzitos em movimento.",
             "",
             "Controles:",
-            "  • SETAS: Movimentar a garra (eixos X e Y).",
-            "  • ESPAÇO: Descer a garra / Fechar a garra para capturar gabrielzitos.",
+            "• SETAS: Movimentar a garra (eixos X e Y).",
+            "• ESPAÇO: Descer a garra / Fechar a garra para capturar gabrielzitos.",
             "",
             "Níveis de Dificuldade:",
             "A dificuldade selecionada no menu afeta a velocidade dos gabrielzitos",
             "e a quantidade de gabrielzitos em movimento dentro da máquina."
         ]
         
-        start_y = box_y + 25
-        line_spacing = 24
         for i, line in enumerate(description_lines):
-            text = description_font.render(line, True, COLOR_TEXT)
-            text_rect = text.get_rect(left=box_x + 30, top=start_y + i * line_spacing)
-            screen.blit(text, text_rect)
+            if not line: continue # Pula linhas vazias
+            
+            # Renderiza linha por linha
+            line_y = start_y + i * line_spacing
+            draw_text_raster(pixel_array, description_font, line, box_x + 20, line_y, COLOR_TEXT)
     
     def _render_transition(self, screen):
         """Renderiza overlay de transição fade to black"""
