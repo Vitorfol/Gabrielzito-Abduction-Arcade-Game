@@ -607,8 +607,8 @@ class Menu:
         description_lines = [
             "Gabrielzito Machine é um jogo arcade 2D inspirado nas clássicas",
             "máquinas de garra, desenvolvido para a disciplina de Computação",
-            "Gráfica. O jogador controla uma garra mecânica dentro da máquina,",
-            "tentando capturar gabrielzitos em movimento.",
+            "Gráfica. O jogador controla um E.T. com uma garra mecânica,",
+            "tentando abduzir gabrielzitos em movimento.",
             "",
             "Controles:",
             "• SETAS: Movimentar a garra (eixos X e Y).",
@@ -616,7 +616,7 @@ class Menu:
             "",
             "Níveis de Dificuldade:",
             "A dificuldade selecionada no menu afeta a velocidade dos gabrielzitos",
-            "e a quantidade de gabrielzitos em movimento dentro da máquina."
+            "e a quantidade de gabrielzitos em movimento."
         ]
         
         for i, line in enumerate(description_lines):
