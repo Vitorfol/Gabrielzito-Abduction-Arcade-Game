@@ -359,7 +359,7 @@ class Menu:
         # Elementos texturizados nos cantos
         margin = ROTATING_BOX_MARGIN
         self.corner_elements = [
-            TexturedBox(margin, margin, _resolve_asset_path("mocking/gabriel-mocking4.png")),                    # Superior esquerdo
+            TexturedBox(margin, margin, _resolve_asset_path("gabrielzito/mocking/gabriel-mocking4.png")),                    # Superior esquerdo
             TexturedEllipse(width - margin, margin, _resolve_asset_path("ufo.png"), base_rx=40, base_ry=25),     # Superior direito (UFO)
             TexturedBox(margin, height - margin, _resolve_asset_path("gabriel-frente.png")),                     # Inferior esquerdo
             TexturedBox(width - margin - 110, height - margin, _resolve_asset_path("gabriel.png"))               # Inferior direito (MOVIDO)
