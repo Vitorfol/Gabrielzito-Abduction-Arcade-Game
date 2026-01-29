@@ -361,8 +361,8 @@ class Menu:
         self.corner_elements = [
             TexturedBox(margin, margin, _resolve_asset_path("gabrielzito/mocking/gabriel-mocking4.png")),                    # Superior esquerdo
             TexturedEllipse(width - margin, margin, _resolve_asset_path("ufo.png"), base_rx=40, base_ry=25),     # Superior direito (UFO)
-            TexturedBox(margin, height - margin, _resolve_asset_path("gabriel-frente.png")),                     # Inferior esquerdo
-            TexturedBox(width - margin - 110, height - margin, _resolve_asset_path("gabriel.png"))               # Inferior direito (MOVIDO)
+            TexturedBox(margin, height - margin, _resolve_asset_path("gabrielzito/gabriel-front.png")),     # Inferior esquerdo
+            TexturedBox(width - margin - 110, height - margin, _resolve_asset_path("gabrielzito/gabriel-side.png"))               # Inferior direito (MOVIDO)
         ]
         
         # Círculo alvo no canto inferior direito (posição original)
