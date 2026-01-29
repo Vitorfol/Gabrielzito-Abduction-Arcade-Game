@@ -12,7 +12,7 @@ def rect_to_polygon(rect):
 def setPixel(surface, x, y, color):
     """Safe setPixel that handles both Surface and PixelArray"""
     try:
-        # Tenta caminho rápido (PixelArray)
+        # Tenta PixelArray
         if 0 <= x < surface.shape[0] and 0 <= y < surface.shape[1]:
             surface[x, y] = color
     except AttributeError:
@@ -56,7 +56,7 @@ def bresenham(surface, x0, y0, x1, y1, color):
     y = y0
 
     while x <= x1:
-        # Desenha pixels (Lógica duplicada para evitar overhead de função)
+        # Desenha pixels
         target_x, target_y = (y, x) if steep else (x, y)
 
         if 0 <= target_x < w and 0 <= target_y < h:
@@ -565,10 +565,8 @@ def paintTexturedEllipse(
             # FAST LOOKUP: Acesso direto à lista de listas (sem overhead de função)
             color = texture_matrix[u][v]
 
-            # Checagem de transparência (Assume tupla RGBA ou RGB)
-            # Se for RGBA e Alpha < 10, pula
+            # Se Alpha < 10, pula
             if color[3] >= 10:
-                # FAST WRITE: Escrita direta na memória da tela
                 pixel_array[x, y] = color
 
 def draw_text_raster(pixel_array, font, text, x, y, color):
@@ -582,25 +580,77 @@ def draw_text_raster(pixel_array, font, text, x, y, color):
         x, y: Posição superior esquerda.
         color: A cor do texto.
     """
-    # 1. Renderiza o texto numa superfície temporária (na memória, não na tela)
+    # Renderiza o texto numa superfície temporária (na memória, não na tela)
     text_surface = font.render(text, True, color)
     w, h = text_surface.get_width(), text_surface.get_height()
     
     # Obtém dimensões da tela para evitar erro de índice
     screen_w, screen_h = pixel_array.shape
     
-    # 2. Itera sobre os pixels da superfície do texto
-    # Otimização: Se o texto for grande, use PixelArray na text_surface também
+    # Itera sobre os pixels da superfície do texto
     for px in range(w):
         for py in range(h):
-            # Pega a cor do pixel do texto (inclui canal Alpha)
+            # Pega a cor do pixel do texto
             curr_color = text_surface.get_at((px, py))
             
-            # 3. Só desenha se não for transparente
-            if curr_color.a > 10:  # Threshold de transparência
+            # Só desenha se não for transparente
+            if curr_color.a > 10:
                 draw_x = x + px
                 draw_y = y + py
                 
                 # Verifica limites da tela (Clipping)
                 if 0 <= draw_x < screen_w and 0 <= draw_y < screen_h:
                     pixel_array[draw_x, draw_y] = curr_color
+
+
+def draw_gradient_rect(pixel_array, x, y, w, h, color_top, color_bottom):
+    """
+    Desenha um retângulo com gradiente vertical (Topo -> Base).
+    Otimizado para PixelArray usando slicing horizontal.
+    """
+    # Limites da tela (Clipping)
+    screen_w, screen_h = pixel_array.shape
+    
+    # Ajusta coordenadas iniciais e finais
+    start_x = max(0, int(x))
+    start_y = max(0, int(y))
+    end_x = min(screen_w, int(x + w))
+    end_y = min(screen_h, int(y + h))
+    
+    # Altura real do desenho (para cálculo da interpolação)
+    draw_height = end_y - start_y
+    if draw_height <= 0 or start_x >= end_x:
+        return
+
+    # Desempacota cores
+    r1, g1, b1 = color_top
+    r2, g2, b2 = color_bottom
+
+    # Pré-cálculo dos deltas (diferença de cor por linha)
+    # Evita divisão dentro do loop
+    if h > 0:
+        inv_h = 1.0 / h
+        dr = (r2 - r1) * inv_h
+        dg = (g2 - g1) * inv_h
+        db = (b2 - b1) * inv_h
+    else:
+        dr = dg = db = 0
+
+    # Avança a cor inicial se o topo foi clipado (y < 0)
+    y_skip = start_y - int(y)
+    curr_r = r1 + dr * y_skip
+    curr_g = g1 + dg * y_skip
+    curr_b = b1 + db * y_skip
+
+    # Loop Scanline (Vertical)
+    for py in range(start_y, end_y):
+        # Converte para inteiro e tupla formato (R,G,B)
+        color = (int(curr_r), int(curr_g), int(curr_b))
+        
+        # Desenha a linha horizontal inteira de uma vez (Rápido!)
+        pixel_array[start_x:end_x, py] = color
+        
+        # Avança a cor para a próxima linha
+        curr_r += dr
+        curr_g += dg
+        curr_b += db

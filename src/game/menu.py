@@ -6,7 +6,7 @@ import sys
 import pygame
 import math
 import os
-from engine.raster import drawPolygon, paintPolygon, draw_circle, flood_fill_iterativo, paintTexturedPolygon, draw_text_raster
+from engine.raster import drawPolygon, paintPolygon, draw_circle, flood_fill_iterativo, paintTexturedPolygon, draw_text_raster, draw_gradient_rect
 from engine.transformations import rotation, scale, multiply_matrices, apply_matrix_to_point
 from game.menu_scene import ClawMachineScene
 from game.model.config import *
@@ -485,26 +485,37 @@ class Menu:
         # 1. Renderizar cenário de fundo
         self.scene.render(screen)
         
-        # 2. Renderizar elementos que exigem BLIT (Transparência/Alpha) ANTES de travar a tela
-        # Fundo do Guia (Caixa semitransparente)
-        if self.in_guia_menu:
-            box_x = 100
-            box_y = 170
-            box_w = self.width - 200
-            box_h = 320
-            box_surface = pygame.Surface((box_w, box_h))
-            box_surface.fill((40, 40, 50))
-            box_surface.set_alpha(220)
-            screen.blit(box_surface, (box_x, box_y))
-            # Desenha a borda (pode ser via pygame.draw ou raster, aqui mantemos o original por ser linha simples)
-            pygame.draw.rect(screen, COLOR_TEXT, pygame.Rect(box_x, box_y, box_w, box_h), 2)
-
-        # 3. Renderização por pixel (Texto e Polígonos)
+        # 2. Renderização por pixel (Texto, Polígonos e Gradientes)
         # OTIMIZAÇÃO: Um único PixelArray para tudo
         with pygame.PixelArray(screen) as pixel_array:
             screen_width = screen.get_width()
             screen_height = screen.get_height()
+
+            # --- FUNDO DO GUIA (GRADIENTE) ---
+            # Desenhamos antes do texto para ficar no fundo
+            if self.in_guia_menu:
+                box_x = 100
+                box_y = 170
+                box_w = self.width - 200
+                box_h = 320
+                
+                # Cores do Gradiente: Azul Cyberpunk -> Preto
+                color_top = (40, 40, 90)
+                color_bottom = (10, 10, 20)
+                
+                # Desenha o fundo com gradiente
+                draw_gradient_rect(pixel_array, box_x, box_y, box_w, box_h, color_top, color_bottom)
+                
+                # Desenha a Borda Branca (Manual, pixel a pixel)
+                border_color = (255, 255, 255)
+                # Topo e Base
+                pixel_array[box_x:box_x+box_w, box_y] = border_color
+                pixel_array[box_x:box_x+box_w, box_y+box_h-1] = border_color
+                # Laterais
+                pixel_array[box_x, box_y:box_y+box_h] = border_color
+                pixel_array[box_x+box_w-1, box_y:box_y+box_h] = border_color
             
+            # --- ELEMENTOS DO MENU ---
             # Elementos texturizados nos cantos
             for element in self.corner_elements:
                 element.render(pixel_array, screen_width, screen_height)
@@ -519,17 +530,19 @@ class Menu:
             ty = 80 - (th // 2)
             draw_text_raster(pixel_array, self.title_font, title_str, tx, ty, self.title_color)
             
-            # Renderizar Submenus
+            # Renderizar Submenus (Textos)
             if self.in_difficulty_menu:
                 self._render_difficulty_menu(pixel_array)
             elif self.in_guia_menu:
+                # O texto será desenhado AGORA, por cima do gradiente que fizemos acima
                 self._render_guia_menu(pixel_array)
             else:
                 self._render_main_menu(pixel_array)
         
-        # 4. Transição (Overlay precisa ser blit por causa do Alpha global)
+        # Transição (Tela preta descendo)
         if self.transitioning:
-            self._render_transition(screen)
+             with pygame.PixelArray(screen) as px_array:
+                self._render_transition(px_array)
     
     def _render_main_menu(self, pixel_array):
         """Renderiza as opções do menu principal via raster"""
@@ -555,7 +568,7 @@ class Menu:
                     (rect_right, rect_bottom),
                     (rect_left, rect_bottom)
                 ]
-                # drawPolygon usa bresenham, compatível com PixelArray
+                # drawPolygon usa bresenham
                 drawPolygon(pixel_array, rect_poly, self.selected_color)
     
     def _render_difficulty_menu(self, pixel_array):
@@ -584,7 +597,7 @@ class Menu:
         # Configurações da caixa de texto
         box_x = 100
         box_y = 170
-        start_y = box_y + 25
+        start_y = box_y + 10
         line_spacing = 24
         
         # Carrega a fonte customizada da pasta assets
@@ -613,8 +626,17 @@ class Menu:
             draw_text_raster(pixel_array, description_font, line, box_x + 20, line_y, COLOR_TEXT)
     
     def _render_transition(self, screen):
-        """Renderiza overlay de transição fade to black"""
-        overlay = pygame.Surface((self.width, self.height))
-        overlay.fill(COLOR_TRANSITION)
-        overlay.set_alpha(self.transition_alpha)
-        screen.blit(overlay, (0, 0))
+        """
+        Efeito de 'Cortina' (Wipe Down).
+        Usa manipulação direta de memória(PixelArray).
+        """
+        # Mapeia o progresso (0 a 255) para a altura da tela (0 a Height)
+        progress = self.transition_alpha / 255.0
+        curtain_height = int(self.height * progress)
+        
+        # Garante limites
+        if curtain_height > self.height:
+            curtain_height = self.height
+            
+        if curtain_height > 0:
+                screen[0:self.width, 0:curtain_height] = COLOR_TRANSITION

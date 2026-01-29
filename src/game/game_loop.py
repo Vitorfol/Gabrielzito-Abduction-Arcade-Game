@@ -4,7 +4,8 @@ Contém a lógica de renderização e orquestração da atualização do jogo.
 """
 import pygame
 import os
-from engine.raster import drawPolygon, paintPolygon, rect_to_polygon, paintTexturedEllipse, paintTexturedPolygon, draw_text_raster
+from datetime import datetime
+from engine.raster import drawPolygon, paintPolygon, rect_to_polygon, paintTexturedEllipse, paintTexturedPolygon, draw_text_raster, draw_gradient_rect
 from game.model.world import World
 from game.model.difficulty import Difficulty
 from game.model import config as const
@@ -25,9 +26,13 @@ class GameLoop:
     """
     Controlador principal da sessão de jogo ativa.
     
-    Atua como a camada de 'View' e 'Controller', orquestrando a atualização 
-    da lógica física (delegada para a classe World) e gerenciando a 
-    pipeline de renderização dos polígonos na tela.
+    Responsabilidades:
+    1. Atuar como 'View' e 'Controller', orquestrando a atualização da lógica física.
+    2. Gerenciar o Estado (Game Over, Vitória, Tempo).
+    3. Gerenciar a pipeline de renderização manual (engine.raster).
+    
+    Iplementação:
+    Utiliza uma engine de rasterização via software. Os arrays de pixels são manipulados diretamente para desenhar polígonos texturizados.
     """
     
     def __init__(self, width, height, difficulty: Difficulty, debug=False):
@@ -35,16 +40,21 @@ class GameLoop:
         Inicializa uma nova sessão de jogo.
         
         Args:
-            width (int): Largura da tela
-            height (int): Altura da tela
-            difficulty (Difficulty): Instância da classe Difficulty
-            debug (bool): Se True, exibe informações de debug
+            width (int): Largura da tela em pixels.
+            height (int): Altura da tela em pixels.
+            difficulty (Difficulty): Instância com configurações de dificuldade.
+            debug (bool): Se True, exibe informações de debug no console.
         """
         self.width = width
         self.height = height
         self.start_time = pygame.time.get_ticks()
-        self.duration = 120000  # 2 minutos (120 segundos)
-        self.game_over = False
+        self.duration = 12000  # 2 minutos (120 segundos)
+        
+        # --- Flags de Controle de Estado ---
+        self.game_over = False       # Trava a atualização da física
+        self.victory = False         # Define qual tela final exibir (Parabéns vs Game Over)
+        self.score_saved = False     # Flag de segurança para evitar múltiplos salvamentos de I/O
+        
         self.debug = debug
 
         if not isinstance(difficulty, Difficulty):
@@ -58,12 +68,13 @@ class GameLoop:
         # Instancia o 'Modelo' do jogo (Física e Estado)
         self.world = World(width, height, self.difficulty, debug=self.debug)
 
-        # Carrega texturas e converte para MATRIZES (Regra de Performance)
+        # Carrega texturas e converte para MATRIZES (Otimização de Performance)
         self.load_textures()
         
         # Flags de Debug Visual
         self.show_hitbox = True
 
+        # Configuração da UI (Inventário)
         self.inventory_window = (0, 100, 100, 0)        # espaço lógico
         self.inventory_viewport = (width-80, 20, width, 100)  # 80x80 px
         self.VW_inventory = viewport_window(
@@ -73,7 +84,7 @@ class GameLoop:
         
     def handle_input(self, event):
         """
-        Processa eventos discretos de input.
+        Processa eventos discretos de input e delega para o estado correto.
         """
         if event.type == pygame.KEYDOWN:
             if not self.game_over:
@@ -83,12 +94,14 @@ class GameLoop:
         return None
     
     def handle_normal_input(self, event):
-            if event.key == pygame.K_SPACE:
-                self.world.handle_input_trigger()
-            elif event.key == pygame.K_ESCAPE:
-                return "BACK_TO_MENU"
+        """Processa inputs durante a gameplay ativa."""
+        if event.key == pygame.K_SPACE:
+            self.world.handle_input_trigger()
+        elif event.key == pygame.K_ESCAPE:
+            return "BACK_TO_MENU"
             
     def game_over_input(self, event):
+        """Processa inputs na tela de fim de jogo."""
         if self.game_over and event.key == pygame.K_RETURN:
             return "RESTART_GAME"
         elif self.game_over and event.key == pygame.K_ESCAPE:
@@ -98,95 +111,128 @@ class GameLoop:
     def update(self, keys):
         """
         Avança um frame na simulação do jogo.
+        Verifica condições de vitória (captura total) e derrota (tempo).
         """
         if not self.game_over:
-            self.game_over = self.check_defeat()
+            # Atualiza física
             self.world.update(keys)
+            
+            # Vitória se todos os grabrielzitos foram capturados
+            all_captured = all(prize.captured for prize in self.world.prizes)
+            
+            if all_captured:
+                self.game_over = True
+                self.victory = True
+                self.save_high_score()
+            
+            # Game Over se tempo esgotado
+            elif self.check_defeat():
+                self.game_over = True
+                self.victory = False
     
+    def save_high_score(self):
+        """
+        Salva a pontuação em arquivo se o jogador vencer.
+        Garante escrita única no disco por sessão.
+        """
+        if self.score_saved: return
+        
+        elapsed = pygame.time.get_ticks() - self.start_time
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        entry = f"{self.difficulty.name}|{elapsed}|{timestamp}\n"
+        
+        try:
+            # Salva em highscores.txt na raiz do projeto
+            base_path = os.path.dirname(os.path.abspath(__file__))
+            score_path = os.path.join(base_path, "..", "..", "highscores.txt")
+            
+            with open(score_path, "a") as f:
+                f.write(entry)
+                
+            self.score_saved = True
+            if self.debug: print(f"Score salvo: {entry.strip()}")
+        except Exception as e:
+            print(f"Erro ao salvar score: {e}")
+
     def render(self, screen):
         """
-        Renderiza o frame atual. Limpa a tela e desenha as entidades.
-        Usa PixelArray para cumprir a regra de "Set Pixel" com performance.
+        Gerencia o pipeline gráfico.
+        Utiliza pygame.PixelArray para acesso direto ao buffer de memória.
         """
         
-        # Lock da superfície para acesso direto à memória (mais rápido que set_at)
+        # Lock da superfície para acesso direto à memória
         with pygame.PixelArray(screen) as px_array:
             
-            # OTIMIZAÇÃO: Cópia de Memória do Background (Cache)
+            # 1. OTIMIZAÇÃO: Cópia de Memória do Background (Cache)
+            # Copia os pixels já processados do cache para a tela atual.
             with pygame.PixelArray(self.bg_cache) as bg_array:
-                # Copia todos os pixels do cache para a tela
-                # [:] substitui todo o conteúdo do array de destino
                 px_array[:] = bg_array[:]
 
-            # Cabo
+            # 2. Renderiza Elementos do Mundo
             self.render_cable(px_array)
 
             # UFO (Corpo + Borda) - ELIPSE
             ufo_hitbox = self.world.ufo.get_ellipse_hitbox()
-            ufo_center = ufo_hitbox['center']
-            ufo_rx = ufo_hitbox['rx']
-            ufo_ry = ufo_hitbox['ry']
-            # Pinta o interior com a textura (Passando Matriz e Array)
             paintTexturedEllipse(
                 px_array, self.width, self.height, 
-                ufo_center, ufo_rx, ufo_ry, 
+                ufo_hitbox['center'], ufo_hitbox['rx'], ufo_hitbox['ry'], 
                 self.ufo_matrix, self.ufo_w, self.ufo_h
             )
 
-            # Garra (Muda baseada no estado aberto/fechado)
+            # Garra (Geometria muda baseada no estado aberto/fechado)
             claw_rect = self.world.claw.get_rect()
             cx, cy, cw, ch = claw_rect
 
-            # Escolhe a textura da garra com base no estado
             if self.world.claw.is_closed:
-                # Define vertices with UV Mapping (X, Y, U, V)
-                # U vai de 0 a texture_width (self.claw_w)
-                # V vai de 0 a texture_height (self.claw_h)
+                # Vértices [x, y, u, v]
                 vertices_claw = [
-                    (cx,      cy,      0,           0),            # Topo esquerdo
-                    (cx + cw, cy,      self.claw_w, 0),            # Topo direito
-                    (cx + cw, cy + ch, self.claw_w, self.claw_h),  # Inferior direito
-                    (cx,      cy + ch, 0,           self.claw_h)   # Inferior esquerdo
+                    (cx,      cy,      0,           0),
+                    (cx + cw, cy,      self.claw_w, 0),
+                    (cx + cw, cy + ch, self.claw_w, self.claw_h),
+                    (cx,      cy + ch, 0,           self.claw_h)
                 ]
                 paintTexturedPolygon(
                     px_array, self.width, self.height, 
-                    vertices_claw,  # Nova lista com UVs
-                    self.claw_matrix, self.claw_w, self.claw_h, 
-                    'standard'
+                    vertices_claw,
+                    self.claw_matrix, self.claw_w, self.claw_h, 'standard'
                 )
             else:
-                # Define vertices com UV Mapping (X, Y, U, V)
                 vertices_claw_open = [
-                    (cx,      cy,      0,               0),                  # Topo esquerdo
-                    (cx + cw, cy,      self.claw_open_w, 0),                 # Topo direito
-                    (cx + cw, cy + ch, self.claw_open_w, self.claw_open_h),  # Inferior direito
-                    (cx,      cy + ch, 0,               self.claw_open_h)    # Inferior esquerdo
+                    (cx,      cy,      0,               0),
+                    (cx + cw, cy,      self.claw_open_w, 0),
+                    (cx + cw, cy + ch, self.claw_open_w, self.claw_open_h),
+                    (cx,      cy + ch, 0,               self.claw_open_h)
                 ]
                 paintTexturedPolygon(
                     px_array, self.width, self.height, 
-                    vertices_claw_open,  # Nova lista com UVs
-                    self.claw_open_matrix, self.claw_open_w, self.claw_open_h, 
-                    'standard'
+                    vertices_claw_open,
+                    self.claw_open_matrix, self.claw_open_w, self.claw_open_h, 'standard'
                 )
 
-            # Prêmios (Gabrielzitos) - Animação por frame
+            # 3. Renderiza Prêmios (Gabrielzitos)
             for prize in self.world.prizes:
                 if not prize.captured:
                     half = prize.size // 2
                     p_x = prize.x
                     p_y = prize.y
                     
-                    # Dados do frame atual da animação
-                    frame_idx = int(prize.frame_index)
-                    # Verificação de segurança (índice válido)
-                    frame_idx = frame_idx % len(self.prize_assets)
-                    
-                    current_asset = self.prize_assets[frame_idx]
-                    current_matrix = current_asset['matrix']
-                    current_w = current_asset['w']
-                    current_h = current_asset['h']
+                    # LÓGICA DE FEEDBACK VISUAL:
+                    # Se perdeu (Game Over e !Victory), troca a textura para 'zombaria' (mocking).
+                    if self.game_over and not self.victory:
+                        current_matrix = self.mock_matrix
+                        current_w = self.mock_w
+                        current_h = self.mock_h
+                    else:
+                        # Animação normal
+                        frame_idx = int(prize.frame_index)
+                        frame_idx = frame_idx % len(self.prize_assets)
+                        
+                        current_asset = self.prize_assets[frame_idx]
+                        current_matrix = current_asset['matrix']
+                        current_w = current_asset['w']
+                        current_h = current_asset['h']
 
-                    # Determina coordenadas UV (Flipa com direção) e dimensões
+                    # Determina coordenadas UV (Inverte horizontalmente com a direção)
                     if prize.direction == 1:
                         u_left = 0
                         u_right = current_w
@@ -194,7 +240,6 @@ class GameLoop:
                         u_left = current_w
                         u_right = 0
 
-                    # Define vertices 
                     vertices_prize = [
                         (p_x - half, p_y - half, u_left,  0),            
                         (p_x + half, p_y - half, u_right, 0),            
@@ -210,25 +255,28 @@ class GameLoop:
 
             self.render_inventory(px_array)
 
-        # Renderiza o timer do jogo
+        # 4. Renderiza UI (Timer)
+        # Feito fora do PixelArray principal para usar primitivas vetorizadas do timer
         self.render_timer(screen)
+        
+        # 5. Renderiza Tela de Fim de Jogo (se aplicável)
+        if self.game_over:
+            self.render_game_over(screen)
 
     def render_cable(self, px_array):
         """
         Renderiza o cabo do UFO com textura repetida (Tiling).
-        Recebe px_array ao invés de screen.
+        Recebe px_array ao invés de screen para performance.
         """
         cable_rect = self.world.cable.get_rect() # Retorna (x, y, w, h)
         cx, cy, cw, ch = cable_rect
 
         # Mapeamento UV para repetição:
-        # U vai de 0 a tex_w (largura da imagem)
-        # V vai de 0 a ch (altura DO CABO)
-        
+        # V vai de 0 a 'ch' (altura do segmento do cabo), causando repetição da textura
         vertices_cable = [
             (cx,      cy,      0,            0),   
             (cx + cw, cy,      self.cable_w, 0),   
-            (cx + cw, cy + ch, self.cable_w, ch),  # V = altura do cabo
+            (cx + cw, cy + ch, self.cable_w, ch),
             (cx,      cy + ch, 0,            ch)   
         ]
 
@@ -240,14 +288,14 @@ class GameLoop:
         )
 
     def load_textures(self):
-        """Carrega imagens e converte para matrizes numéricas (list of lists)."""
-        # 1. Carrega Imagens
+        """
+        Carrega imagens do disco e converte para matrizes numéricas.
+        Gera cache do background para otimização.
+        """
+        # 1. Carrega Background e gera Cache
         bg_surf = pygame.image.load(_resolve_asset_path("pelourinho.png"))
-        # OTIMIZAÇÃO: Cache do background em Surface (Evita reprocessar todo frame)
-        # Renderiza o background uma vez, depois usa cópia de memória
         bg_matrix, bg_w, bg_h = self.surface_to_matrix(bg_surf)
         
-        # Renderiza background em Surface cache (uma vez só)
         self.bg_cache = pygame.Surface((self.width, self.height))
         with pygame.PixelArray(self.bg_cache) as px_array:
             vertices_bg = [
@@ -261,29 +309,36 @@ class GameLoop:
                 vertices_bg, bg_matrix, bg_w, bg_h, 'standard'
             )
 
+        # 2. Carrega Sprites da Animação Padrão
         self.prize_assets = []
         self.prize_w = 0
         self.prize_h = 0
-        # Carrega step1.png até step12.png (animação de movimento)
         for i in range(1, 13):
             fname = f"gabrielzito/movement/step{i}.png"
             surf = pygame.image.load(_resolve_asset_path(fname))
             
-            # Converte cada frame para matriz
             matrix, w, h = self.surface_to_matrix(surf)
-            # Guarda a largura/altura de cada imagem
             self.prize_assets.append({
                 'matrix': matrix,
                 'w': w,
                 'h': h
             })
+
+        # 3. Carrega Sprite de Mocking com Fallback
+        try:
+            mock_surf = pygame.image.load(_resolve_asset_path("gabrielzito/mocking/gabriel-mocking2.png"))
+        except FileNotFoundError:
+            if self.debug: print("Mocking sprite nao encontrado, usando fallback.")
+            mock_surf = pygame.image.load(_resolve_asset_path("gabrielzito/movement/step1.png"))
+            
+        self.mock_matrix, self.mock_w, self.mock_h = self.surface_to_matrix(mock_surf)
         
+        # 4. Carrega Demais Texturas (UFO, Garra, Cabo)
         ufo_surf = pygame.image.load(_resolve_asset_path("ufo.png"))
         cable_surf = pygame.image.load(_resolve_asset_path("cable.png"))
         claw_surf = pygame.image.load(_resolve_asset_path("claw.png"))
         claw_open_surf = pygame.image.load(_resolve_asset_path("claw_open.png"))
 
-        # 2. Converte para Matrizes (Acesso Rápido)
         self.ufo_matrix, self.ufo_w, self.ufo_h = self.surface_to_matrix(ufo_surf)
         self.cable_matrix, self.cable_w, self.cable_h = self.surface_to_matrix(cable_surf)
         self.claw_matrix, self.claw_w, self.claw_h = self.surface_to_matrix(claw_surf)
@@ -304,9 +359,10 @@ class GameLoop:
     def render_inventory(self, px_array):
         """
         Renderiza os prêmios capturados dentro da viewport do inventário.
+        Utiliza transformação de coordenadas (World -> Viewport).
         """
         captured = [p for p in self.world.prizes if p.captured]
-        if not self.prize_assets: return # Verificação de segurança
+        if not self.prize_assets: return
 
         icon_asset = self.prize_assets[0]
         icon_matrix = icon_asset['matrix']
@@ -314,7 +370,7 @@ class GameLoop:
         icon_h = icon_asset['h']
 
         for i, prize in enumerate(captured):
-            # posição lógica simples (grade)
+            # Posição lógica em grade
             col = i % 4
             row = i // 4
             x = 15 + col * 25
@@ -329,7 +385,7 @@ class GameLoop:
                 (x - half, y + half, 0, icon_h)
             ]
 
-            # transforma para a viewport do inventário
+            # Transforma vértices para a viewport do inventário
             vertices_t = []
             for vx, vy, u, v in vertices:
                 P = [vx, vy, 1]
@@ -352,6 +408,7 @@ class GameLoop:
         return False
     
     def render_timer(self, screen):
+        """Calcula o tempo restante e desenha o display de 7 segmentos."""
         elapsed = pygame.time.get_ticks() - self.start_time
         remaining = max(0, self.duration - elapsed)
 
@@ -379,7 +436,7 @@ class GameLoop:
             self._draw_7seg_digit(px_array, start_x + 125, start_y, digit4)
     
     def _draw_7seg_digit(self, px_array, x, y, digit):
-        """Desenha um dígito no formato de display de 7 segmentos (Mais curto e grosso)"""
+        """Desenha um dígito no formato de display de 7 segmentos (Vetorizado)."""
         
         # Mapeamento de dígitos para segmentos ativos
         segments_map = {
@@ -397,16 +454,15 @@ class GameLoop:
         
         segments = segments_map.get(digit, [0, 0, 0, 0, 0, 0, 0])
         
-        # --- NOVAS DIMENSÕES ---
-        seg_width = 20       # Largura total horizontal
-        seg_height = 6       # Espessura da barra horizontal (era 4)
-        seg_length = 14      # Altura da barra vertical (era 25) - ISSO ENCURTA O DÍGITO
-        thickness = 6        # Espessura visual das barras verticais
+        # Dimensões do Display
+        seg_width = 20
+        seg_height = 6
+        seg_length = 14
+        thickness = 6
         
         color_on = (255, 255, 255)
-        color_off = (50, 50, 50)
         
-        # Segmento superior (top)
+        # Segmento superior
         if segments[0]:
             poly = [
                 (x + thickness, y), 
@@ -416,7 +472,7 @@ class GameLoop:
             ]
             paintPolygon(px_array, poly, color_on)
         
-        # Segmento superior direito (top-right)
+        # Segmento superior direito
         if segments[1]:
             poly = [
                 (x + seg_width + thickness, y + 2), 
@@ -426,7 +482,7 @@ class GameLoop:
             ]
             paintPolygon(px_array, poly, color_on)
         
-        # Segmento inferior direito (bottom-right)
+        # Segmento inferior direito
         if segments[2]:
             poly = [
                 (x + seg_width + thickness, y + seg_length + 6), 
@@ -436,7 +492,7 @@ class GameLoop:
             ]
             paintPolygon(px_array, poly, color_on)
         
-        # Segmento inferior (bottom)
+        # Segmento inferior
         if segments[3]:
             poly = [
                 (x + thickness + 2, y + 2 * seg_length + 8), 
@@ -446,7 +502,7 @@ class GameLoop:
             ]
             paintPolygon(px_array, poly, color_on)
         
-        # Segmento inferior esquerdo (bottom-left)
+        # Segmento inferior esquerdo
         if segments[4]:
             poly = [
                 (x, y + seg_length + 8), 
@@ -456,7 +512,7 @@ class GameLoop:
             ]
             paintPolygon(px_array, poly, color_on)
         
-        # Segmento superior esquerdo (top-left)
+        # Segmento superior esquerdo
         if segments[5]:
             poly = [
                 (x, y + 4), 
@@ -466,7 +522,7 @@ class GameLoop:
             ]
             paintPolygon(px_array, poly, color_on)
         
-        # Segmento do meio (middle)
+        # Segmento do meio
         if segments[6]:
             poly = [
                 (x + thickness + 2, y + seg_length + 2), 
@@ -477,66 +533,106 @@ class GameLoop:
             paintPolygon(px_array, poly, color_on)
 
     def _draw_7seg_colon(self, px_array, x, y):
-        """Desenha os dois pontos separadores (:) ajustados para a nova altura"""
+        """Desenha os dois pontos separadores (:)"""
         
         color = (255, 255, 255)
-        size = 4 # Aumentei um pouco o tamanho do ponto (era 3)
+        size = 4
         
-        # Ponto superior (Ajustado para o novo seg_length de 14)
+        # Ponto superior
         poly_top = [(x, y + 10), (x + size, y + 10), (x + size, y + 10 + size), (x, y + 10 + size)]
         paintPolygon(px_array, poly_top, color)
         
-        # Ponto inferior (Ajustado para o novo seg_length de 14)
+        # Ponto inferior
         poly_bottom = [(x, y + 25), (x + size, y + 25), (x + size, y + 25 + size), (x, y + 25 + size)]
         paintPolygon(px_array, poly_bottom, color)
 
     def render_game_over(self, screen):
-        # 1. Desenha o Overlay (Fundo escuro)
-        overlay = pygame.Surface((self.width, self.height))
-        overlay.set_alpha(220)
-        overlay.fill(COLOR_TRANSITION)
-
-        # 2. Configura as fontes
-        font_path = _resolve_asset_path("fonts/ThaleahFat.ttf")
+        """
+        Exibe a tela de resultado (Vitória ou Derrota) sobreposta ao jogo.
+        Diferente do render() principal, desenha os textos por cima da cena atual,
+        permitindo que o jogador veja o estado final.
+        """
         
-        # Carrega fontes customizadas
+        # Configura as fontes
+        font_path = _resolve_asset_path("fonts/ThaleahFat.ttf")
         try:
             font_title = pygame.font.Font(font_path, 55)
             font_text = pygame.font.Font(font_path, 35)
         except FileNotFoundError:
-            # Fallback se esquecer de colocar o arquivo
             font_title = pygame.font.Font(None, FONT_SIZE_LARGE)
             font_text = pygame.font.Font(None, FONT_SIZE_MEDIUM)
 
-        # 3. Abre o contexto de acesso direto aos pixels
-        with pygame.PixelArray(screen) as px_array:
-
-            # OTIMIZAÇÃO: Cópia de Memória do Background (Cache)
-            with pygame.PixelArray(self.bg_cache) as bg_array:
-                px_array[:] = bg_array[:]
-
-            
-            # --- TÍTULO ---
+        # Define Texto e Cores
+        if self.victory:
+            text_title = "PARABENS!"
+            text_subtitle = "VOCE CAPTUROU TODOS!"
+            color_title = (100, 255, 100) # Verde
+        else:
             text_title = "TEMPO ESGOTADO"
-            # Calcula largura/altura para centralizar
-            w, h = font_title.size(text_title) 
-            x = (self.width - w) // 2
-            y = (self.height // 2) - 80 - (h // 2)
-            
-            draw_text_raster(px_array, font_title, text_title, x, y, COLOR_TITLE)
+            text_subtitle = "GABRIELZITOS ESCAPARAM..."
+            color_title = (255, 80, 80)   # Vermelho
+        
+        # Cores do Gradiente
+        color_top = (40, 40, 90)      # Azul Cyberpunk
+        color_bottom = (10, 10, 20)   # Quase Preto
 
-            # --- RESTART ---
-            text_restart = "ENTER - JOGAR NOVAMENTE"
-            w, h = font_text.size(text_restart)
-            x = (self.width - w) // 2
-            y = (self.height // 2) - (h // 2)
-            
-            draw_text_raster(px_array, font_text, text_restart, x, y, COLOR_TEXT_SELECTED)
+        # Geometria da Moldura - Metade superior da tela
+        margin_x = 50
+        margin_top = 30
+        
+        # A altura máxima é a metade da tela menos uma margem
+        limit_y = (self.height // 2) - 20
+        
+        x0 = margin_x
+        y0 = margin_top
+        x1 = self.width - margin_x
+        y1 = limit_y
 
-            # --- MENU ---
-            text_menu = "ESC - VOLTAR AO MENU"
-            w, h = font_text.size(text_menu)
-            x = (self.width - w) // 2
-            y = (self.height // 2) + 50 - (h // 2)
+        width_rect = x1 - x0
+        height_rect = y1 - y0
+        
+        # Vértices para o rasterizador desenhar o polígono
+        rect_frame = [
+            (x0, y0),
+            (x1, y0),
+            (x1, y1),
+            (x0, y1)
+        ]
+
+        # Renderização via PixelArray
+        with pygame.PixelArray(screen) as px_array:
             
-            draw_text_raster(px_array, font_text, text_menu, x, y, COLOR_TEXT)
+            # --- MOLDURA (Fundo e Borda) ---
+            # Fundo com gradiente e borda branca sólida
+            draw_gradient_rect(px_array, x0, y0, width_rect, height_rect, color_top, color_bottom)
+            drawPolygon(px_array, rect_frame, (255, 255, 255))
+
+            # --- TEXTOS (Posicionados relativos ao centro da moldura) ---
+            center_frame_x = self.width // 2
+            # O centro Y da moldura para alinhar o texto
+            center_frame_y = y0 + (y1 - y0) // 2 
+
+            # TÍTULO (acima do centro da moldura)
+            w, h = font_title.size(text_title)
+            x = center_frame_x - (w // 2)
+            y = center_frame_y - 100 
+            draw_text_raster(px_array, font_title, text_title, x, y, color_title)
+
+            # SUBTÍTULO
+            w_sub, h_sub = font_text.size(text_subtitle)
+            x_sub = center_frame_x - (w_sub // 2)
+            y_sub = y + 55
+            draw_text_raster(px_array, font_text, text_subtitle, x_sub, y_sub, COLOR_TEXT)
+
+            # OPÇÕES (Restart / Menu) - abaixo do centro
+            text_restart = "ENTER: JOGAR NOVAMENTE"
+            w_res, h_res = font_text.size(text_restart)
+            x_res = center_frame_x - (w_res // 2)
+            y_res = center_frame_y + 40
+            draw_text_raster(px_array, font_text, text_restart, x_res, y_res, COLOR_TEXT_SELECTED)
+
+            text_menu = "ESC: VOLTAR AO MENU"
+            w_menu, h_menu = font_text.size(text_menu)
+            x_menu = center_frame_x - (w_menu // 2)
+            y_menu = y_res + 35
+            draw_text_raster(px_array, font_text, text_menu, x_menu, y_menu, COLOR_TEXT)
