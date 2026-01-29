@@ -6,6 +6,7 @@ import pygame
 import os
 from datetime import datetime
 from engine.raster import drawPolygon, paintPolygon, rect_to_polygon, paintTexturedEllipse, paintTexturedPolygon, draw_text_raster, draw_gradient_rect
+from game.audio_manager import play_audio
 from game.model.world import World
 from game.model.difficulty import Difficulty
 from game.model import config as const
@@ -48,7 +49,7 @@ class GameLoop:
         self.width = width
         self.height = height
         self.start_time = pygame.time.get_ticks()
-        self.duration = 12000  # 2 minutos (120 segundos)
+        self.duration = 60000  # 60 segundos
         
         # --- Flags de Controle de Estado ---
         self.game_over = False       # Trava a atualização da física
@@ -123,12 +124,17 @@ class GameLoop:
             if all_captured:
                 self.game_over = True
                 self.victory = True
+                self.bg_cache = self.bg_cache_win
                 self.save_high_score()
+                play_audio("ufo")
+                
             
             # Game Over se tempo esgotado
             elif self.check_defeat():
                 self.game_over = True
                 self.victory = False
+                self.bg_cache = self.bg_cache_lose
+                play_audio("game-over")
     
     def save_high_score(self):
         """
@@ -163,12 +169,12 @@ class GameLoop:
         # Lock da superfície para acesso direto à memória
         with pygame.PixelArray(screen) as px_array:
             
-            # 1. OTIMIZAÇÃO: Cópia de Memória do Background (Cache)
+            # OTIMIZAÇÃO: Cópia de Memória do Background (Cache)
             # Copia os pixels já processados do cache para a tela atual.
             with pygame.PixelArray(self.bg_cache) as bg_array:
                 px_array[:] = bg_array[:]
 
-            # 2. Renderiza Elementos do Mundo
+            # Renderiza Elementos do Mundo
             self.render_cable(px_array)
 
             # UFO (Corpo + Borda) - ELIPSE
@@ -217,8 +223,15 @@ class GameLoop:
                     p_y = prize.y
                     
                     # LÓGICA DE FEEDBACK VISUAL:
-                    # Se perdeu (Game Over e !Victory), troca a textura para 'zombaria' (mocking).
-                    if self.game_over and not self.victory:
+
+                    if prize.being_held:
+                        # Se está sendo segurado, troca para "held"
+                        current_matrix = self.held_matrix
+                        current_w = self.held_w
+                        current_h = self.held_h
+
+                    # Se perdeu (Game Over e !Victory), troca a textura para mocking.
+                    elif self.game_over and not self.victory:
                         current_matrix = self.mock_matrix
                         current_w = self.mock_w
                         current_h = self.mock_h
@@ -292,27 +305,17 @@ class GameLoop:
         Carrega imagens do disco e converte para matrizes numéricas.
         Gera cache do background para otimização.
         """
-        # 1. Carrega Background e gera Cache
-        bg_surf = pygame.image.load(_resolve_asset_path("pelourinho.png"))
-        bg_matrix, bg_w, bg_h = self.surface_to_matrix(bg_surf)
-        
-        self.bg_cache = pygame.Surface((self.width, self.height))
-        with pygame.PixelArray(self.bg_cache) as px_array:
-            vertices_bg = [
-                (0, 0, 0, 0),
-                (self.width, 0, bg_w, 0),
-                (self.width, self.height, bg_w, bg_h),
-                (0, self.height, 0, bg_h)
-            ]
-            paintTexturedPolygon(
-                px_array, self.width, self.height,
-                vertices_bg, bg_matrix, bg_w, bg_h, 'standard'
-            )
+        # Carrega e pré-renderiza os 3 Backgrounds
+        self.bg_cache_normal = self._prerender_background("pelourinho.png")
+        self.bg_cache_win = self._prerender_background("pelourinho-ufo.png")
+        self.bg_cache_lose = self._prerender_background("pelourinho-mocking-lens.png")
 
-        # 2. Carrega Sprites da Animação Padrão
+        # Define o background inicial
+        self.bg_cache = self.bg_cache_normal
+
+        # Carrega sprites da animação de movimento
         self.prize_assets = []
-        self.prize_w = 0
-        self.prize_h = 0
+        self.prize_w, self.prize_h = 0, 0
         for i in range(1, 13):
             fname = f"gabrielzito/movement/step{i}.png"
             surf = pygame.image.load(_resolve_asset_path(fname))
@@ -324,16 +327,15 @@ class GameLoop:
                 'h': h
             })
 
-        # 3. Carrega Sprite de Mocking com Fallback
-        try:
-            mock_surf = pygame.image.load(_resolve_asset_path("gabrielzito/mocking/gabriel-mocking2.png"))
-        except FileNotFoundError:
-            if self.debug: print("Mocking sprite nao encontrado, usando fallback.")
-            mock_surf = pygame.image.load(_resolve_asset_path("gabrielzito/movement/step1.png"))
-            
+        # Carrega sprite de mocking            
+        mock_surf = pygame.image.load(_resolve_asset_path("gabrielzito/mocking/gabriel-mocking4.png"))
         self.mock_matrix, self.mock_w, self.mock_h = self.surface_to_matrix(mock_surf)
+
+        # Carrega Sprite de "Sendo Segurado"
+        held_surf = pygame.image.load(_resolve_asset_path("gabrielzito/caught/gabriel-caught3.png"))
+        self.held_matrix, self.held_w, self.held_h = self.surface_to_matrix(held_surf)
         
-        # 4. Carrega Demais Texturas (UFO, Garra, Cabo)
+        # Carrega outras texturas (UFO, Garra, Cabo)
         ufo_surf = pygame.image.load(_resolve_asset_path("ufo.png"))
         cable_surf = pygame.image.load(_resolve_asset_path("cable.png"))
         claw_surf = pygame.image.load(_resolve_asset_path("claw.png"))
@@ -564,11 +566,11 @@ class GameLoop:
 
         # Define Texto e Cores
         if self.victory:
-            text_title = "PARABENS!"
-            text_subtitle = "VOCE CAPTUROU TODOS!"
+            text_title = "SUCCESS!"
+            text_subtitle = "VOCE ABDUZIU TODOS!"
             color_title = (100, 255, 100) # Verde
         else:
-            text_title = "TEMPO ESGOTADO"
+            text_title = "GAME OVER!"
             text_subtitle = "GABRIELZITOS ESCAPARAM..."
             color_title = (255, 80, 80)   # Vermelho
         
@@ -578,7 +580,7 @@ class GameLoop:
 
         # Geometria da Moldura - Metade superior da tela
         margin_x = 50
-        margin_top = 30
+        margin_top = 80
         
         # A altura máxima é a metade da tela menos uma margem
         limit_y = (self.height // 2) - 20
@@ -615,7 +617,7 @@ class GameLoop:
             # TÍTULO (acima do centro da moldura)
             w, h = font_title.size(text_title)
             x = center_frame_x - (w // 2)
-            y = center_frame_y - 100 
+            y = center_frame_y - 90 
             draw_text_raster(px_array, font_title, text_title, x, y, color_title)
 
             # SUBTÍTULO
@@ -628,11 +630,38 @@ class GameLoop:
             text_restart = "ENTER: JOGAR NOVAMENTE"
             w_res, h_res = font_text.size(text_restart)
             x_res = center_frame_x - (w_res // 2)
-            y_res = center_frame_y + 40
+            y_res = center_frame_y + 30
             draw_text_raster(px_array, font_text, text_restart, x_res, y_res, COLOR_TEXT_SELECTED)
 
             text_menu = "ESC: VOLTAR AO MENU"
             w_menu, h_menu = font_text.size(text_menu)
             x_menu = center_frame_x - (w_menu // 2)
-            y_menu = y_res + 35
+            y_menu = y_res + 25
             draw_text_raster(px_array, font_text, text_menu, x_menu, y_menu, COLOR_TEXT)
+    
+
+    def _prerender_background(self, filename):
+        """
+        Helper para carregar imagem e gerar superfície de cache já rasterizada.
+        """
+        try:
+            surf = pygame.image.load(_resolve_asset_path(filename))
+        except FileNotFoundError:
+            if self.debug: print(f"AVISO: Background {filename} não encontrado.")
+            return None
+
+        matrix, w, h = self.surface_to_matrix(surf)
+        
+        cache = pygame.Surface((self.width, self.height))
+        with pygame.PixelArray(cache) as px_array:
+            vertices = [
+                (0, 0, 0, 0),
+                (self.width, 0, w, 0),
+                (self.width, self.height, w, h),
+                (0, self.height, 0, h)
+            ]
+            paintTexturedPolygon(
+                px_array, self.width, self.height,
+                vertices, matrix, w, h, 'standard'
+            )
+        return cache

@@ -108,10 +108,19 @@ class World:
 
             case GameState.LIFT:
                 self.claw.lift()
+                # Limite superior (base do UFO)
+                limit_y = self.ufo.y + 50
+
                 # Se voltou ao topo, muda para MOVE
-                if self.claw.y <= self.ufo.y + 50:
-                    self.claw.y = self.ufo.y + 50 # Garante a posição exata (snap)
+                if self.claw.y <= limit_y:
+                    self.claw.y = limit_y # Garante a posição exata (snap)
                     self.claw.stop()  # para o impulso de subida
+                    # Finaliza captura
+                    for prize in self.prizes:
+                        if prize.being_held:
+                            prize.capture() # Gabrielzito some e conta ponto
+                    
+                    self.claw.open() # Abre a garra para a próxima
                     self.state = GameState.MOVE
 
         # Atualizações Gerais
@@ -120,6 +129,12 @@ class World:
 
         # Mantém a garra alinhada ao UFO no eixo X
         self.claw.x = self.ufo.x
+
+        # Atualiza posição dos prêmios que estão subindo
+        for prize in self.prizes:
+            if prize.being_held:
+                prize.x = self.claw.x
+                prize.y = self.claw.y + 20 # Ajuste visual de altura
 
     def handle_lateral_movement(self, keys):
         """

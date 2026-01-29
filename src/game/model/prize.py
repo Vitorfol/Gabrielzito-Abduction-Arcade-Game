@@ -5,6 +5,7 @@ class Prize:
         self.y = y
         self.size = 60
         self.captured = False
+        self.being_held = False # preso na garra, mas ainda visível
         self.speed = 2
         self.direction = 1
         
@@ -12,8 +13,14 @@ class Prize:
         self.frame_index = 0.0      # Frame atual (float para incrementos graduais)
         self.anim_cycle_speed = 0.15 # Ajuste para mudar a velocidade global da animação
 
+    def attach(self):
+        """Prende o prêmio na garra (estado intermediário)."""
+        self.being_held = True
+
     def capture(self):
+        """Finaliza a captura (some do jogo e vai para inventário)."""
         self.captured = True
+        self.being_held = False
 
     def update(self, min_x, max_x):
         if self.captured:
