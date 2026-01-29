@@ -1,7 +1,9 @@
 import pygame
 
 def show_fps(screen, clock):
-    """Draws the FPS in the top-left corner. Initializes font only once."""
+    """Desenha o FPS no canto superior esquerdo. Inicializa a fonte apenas uma vez.
+    ESTA FUNÇÃO É APENAS UMA FERRAMENTA DE DEBUG!
+    """
     if not hasattr(show_fps, "font"):
         show_fps.font = pygame.font.SysFont("Arial", 18, bold=True)
     

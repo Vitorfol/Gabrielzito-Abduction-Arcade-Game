@@ -139,7 +139,7 @@ class GameLoop:
     def save_high_score(self):
         """
         Salva a pontuação em arquivo se o jogador vencer.
-        Garante escrita única no disco por sessão.
+        Formato: DIFICULDADE|MILISEGUNDOS|TIMESTAMP
         """
         if self.score_saved: return
         
