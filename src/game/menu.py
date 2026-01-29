@@ -491,15 +491,14 @@ class Menu:
             screen_width = screen.get_width()
             screen_height = screen.get_height()
 
-            # --- FUNDO DO GUIA (GRADIENTE) ---
-            # Desenhamos antes do texto para ficar no fundo
+            # FUNDO DO GUIA (GRADIENTE)
             if self.in_guia_menu:
                 box_x = 100
                 box_y = 170
                 box_w = self.width - 200
                 box_h = 320
                 
-                # Cores do Gradiente: Azul Cyberpunk -> Preto
+                # Cores do Gradiente: Azul Cyberpunk a Preto
                 color_top = (40, 40, 90)
                 color_bottom = (10, 10, 20)
                 
@@ -515,7 +514,7 @@ class Menu:
                 pixel_array[box_x, box_y:box_y+box_h] = border_color
                 pixel_array[box_x+box_w-1, box_y:box_y+box_h] = border_color
             
-            # --- ELEMENTOS DO MENU ---
+            # ELEMENTOS DO MENU
             # Elementos texturizados nos cantos
             for element in self.corner_elements:
                 element.render(pixel_array, screen_width, screen_height)
@@ -523,7 +522,7 @@ class Menu:
             # Círculo alvo
             self.target_circle.render(pixel_array)
         
-            # Título Principal "GABRIELZITO ABDUCTION"
+            # Título Principal
             title_str = "GABRIELZITO ABDUCTION"
             tw, th = self.title_font.size(title_str)
             tx = (self.width - tw) // 2
