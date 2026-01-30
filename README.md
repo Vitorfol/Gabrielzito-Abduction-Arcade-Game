@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project implements a **2D Arcade Game** initially inspired by a classic **claw machine** and themed after a UFO subduction attempt, developed for the *Computer Graphics* course. The player controls a mechanical claw, attempting to grab(abduct) moving objects while playing under a difficulty level selected at the beginning of the game.
+This project implements a **2D Arcade Game** initially inspired by a classic **claw machine** and themed after a UFO abduction attempt, developed for the *Computer Graphics* course. The player controls a mechanical claw, attempting to grab(abduct) moving objects while playing under a difficulty level selected at the beginning of the game.
 
 The main goal of the project is to **manually implement core Computer Graphics algorithms**, without relying on high-level graphics libraries, following the academic constraints defined by the course.
 
