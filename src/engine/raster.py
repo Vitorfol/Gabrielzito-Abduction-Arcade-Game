@@ -92,7 +92,7 @@ def drawPolygon(surface, pontos, color):
 def paintPolygon(pixel_array, pontos, color):
     """Preenche polígono usando algoritmo scanline."""
     w, h = pixel_array.shape
-    
+
     # Converte para int se necessário
     if isinstance(color, tuple):
         color = pixel_array.surface.map_rgb(color)
@@ -101,7 +101,7 @@ def paintPolygon(pixel_array, pontos, color):
     ys = [int(p[1]) for p in pontos]
     y_min = max(0, min(ys))
     y_max = min(h, max(ys))
-    
+
     n = len(pontos)
     pontos_int = [(int(p[0]), int(p[1])) for p in pontos]
 
@@ -111,25 +111,27 @@ def paintPolygon(pixel_array, pontos, color):
             x0, y0 = pontos_int[i]
             x1, y1 = pontos_int[(i + 1) % n]
 
-            if y0 == y1: continue # Ignora arestas horizontais
-            if y0 > y1: # Garante y0 < y1   
+            if y0 == y1:
+                continue  # Ignora arestas horizontais
+            if y0 > y1:  # Garante y0 < y1
                 x0, y0, x1, y1 = x1, y1, x0, y0
-            if y < y0 or y >= y1: continue # Verifica scanline
+            if y < y0 or y >= y1:
+                continue  # Verifica scanline
 
-            x = x0 + (y - y0) * (x1 - x0) / (y1 - y0) # Calcula interseção X
+            x = x0 + (y - y0) * (x1 - x0) / (y1 - y0)  # Calcula interseção X
             intersecoes_x.append(x)
 
-        intersecoes_x.sort() # Ordena interseções
+        intersecoes_x.sort()  # Ordena interseções
 
         for i in range(0, len(intersecoes_x), 2):
-            if i + 1 < len(intersecoes_x): # Clipping Horizontal (par de interseções)
+            if i + 1 < len(intersecoes_x):  # Clipping Horizontal (par de interseções)
                 x_start = max(0, int(intersecoes_x[i]))
                 x_end = min(w - 1, int(intersecoes_x[i + 1]))
-                
+
                 # Otimização: Loop direto sem chamada de função
                 # + slice no lugar de for loop (roda em c = mais eficiente)
                 if x_start <= x_end:
-                    pixel_array[x_start:x_end+1, y] = color
+                    pixel_array[x_start : x_end + 1, y] = color
 
 
 def paintTexturedPolygon(
@@ -358,138 +360,45 @@ def flood_fill_iterativo(pixel_array, x, y, fill_color, border_color):
         stack.append((cx, cy + 1))
         stack.append((cx, cy - 1))
 
+def paint_ellipse(surface, center, rx, ry, fill_color):
+    """
+    Preenche uma elipse usando scanline fill.
 
-def draw_ellipse_points(surface, xc, yc, x, y, color):
-    """Espelha ponto para os 4 quadrantes da elipse"""
-    setPixel(surface, xc + x, yc + y, color)
-    setPixel(surface, xc - x, yc + y, color)
-    setPixel(surface, xc + x, yc - y, color)
-    setPixel(surface, xc - x, yc - y, color)
+    Parâmetros:
+    - surface: superfície Pygame
+    - center: tupla (xc, yc) com coordenadas do centro
+    - rx: raio no eixo X
+    - ry: raio no eixo Y
+    - fill_color: cor do preenchimento (R, G, B)
 
+    Algoritmo:
+        Para cada scanline y de (yc - ry) até (yc + ry):
+            Calcula interseções x usando equação da elipse
+            Preenche pixels entre as interseções
+    """
+    xc, yc = center
 
-# TODO: Avaliar necessidade dessas funções no programa
-# def draw_ellipse(surface, center, rx, ry, color):
-#     """
-#     Desenha uma elipse usando o Algoritmo de Ponto Médio (Midpoint Ellipse Algorithm).
-#
-#     Parâmetros:
-#     - surface: superfície Pygame
-#     - center: tupla (xc, yc) com coordenadas do centro
-#     - rx: raio no eixo X
-#     - ry: raio no eixo Y
-#     - color: cor da borda (R, G, B)
-#
-#     O algoritmo divide o primeiro quadrante em duas regiões:
-#     - Região 1: incrementa x enquanto |slope| < 1
-#     - Região 2: decrementa y até y = 0
-#     """
-#     xc, yc = center
-#
-#     # Valores iniciais (começa em (0, ry))
-#     x = 0
-#     y = ry
-#
-#     # Quadrados dos raios (pré-calculados para evitar multiplicações repetidas)
-#     rx2 = rx * rx
-#     ry2 = ry * ry
-#
-#     # Termos 2*a² e 2*b² (usados nos incrementos)
-#     two_rx2 = 2 * rx2
-#     two_ry2 = 2 * ry2
-#
-#     # Região 1: Incrementa x até slope = -1
-#     # Condição: 2*b²*x < 2*a²*y
-#
-#     # Parâmetro de decisão inicial P1 = b²(1) + a²(-b + 1/4)
-#     # Simplificado para inteiros: P1 = b² - a²*b + a²/4
-#     p1 = int(ry2 - rx2 * ry + 0.25 * rx2)
-#
-#     # Termos incrementais para Região 1
-#     px = 0
-#     py = two_rx2 * y
-#
-#     # Plota ponto inicial
-#     draw_ellipse_points(surface, xc, yc, x, y, color)
-#
-#     # Itera enquanto a inclinação |dy/dx| < 1
-#     while px < py:
-#         x += 1
-#         px += two_ry2
-#
-#         if p1 < 0:
-#             # Ponto médio está dentro: escolhe E (x+1, y)
-#             p1 += ry2 + px
-#         else:
-#             # Ponto médio está fora: escolhe SE (x+1, y-1)
-#             y -= 1
-#             py -= two_rx2
-#             p1 += ry2 + px - py
-#
-#         draw_ellipse_points(surface, xc, yc, x, y, color)
-#
-#     # Região 2: Decrementa y até y = 0
-#     # Condição: 2*b²*x >= 2*a²*y (continua de onde Região 1 parou)
-#
-#     # Parâmetro de decisão inicial P2 para Região 2
-#     # P2 = b²(x + 1/2)² + a²(y - 1)² - a²b²
-#     p2 = int(ry2 * (x + 0.5) * (x + 0.5) + rx2 * (y - 1) * (y - 1) - rx2 * ry2)
-#
-#     # Itera decrementando y até chegar ao eixo x
-#     while y > 0:
-#         y -= 1
-#         py -= two_rx2
-#
-#         if p2 > 0:
-#             # Ponto médio está fora: escolhe S (x, y-1)
-#             p2 += rx2 - py
-#         else:
-#             # Ponto médio está dentro: escolhe SE (x+1, y-1)
-#             x += 1
-#             px += two_ry2
-#             p2 += rx2 - py + px
-#
-#         draw_ellipse_points(surface, xc, yc, x, y, color)
-#
-#
-# def paint_ellipse(surface, center, rx, ry, fill_color):
-#     """
-#     Preenche uma elipse usando scanline fill.
-#
-#     Parâmetros:
-#     - surface: superfície Pygame
-#     - center: tupla (xc, yc) com coordenadas do centro
-#     - rx: raio no eixo X
-#     - ry: raio no eixo Y
-#     - fill_color: cor do preenchimento (R, G, B)
-#
-#     Algoritmo:
-#         Para cada scanline y de (yc - ry) até (yc + ry):
-#             Calcula interseções x usando equação da elipse
-#             Preenche pixels entre as interseções
-#     """
-#     xc, yc = center
-#
-#     # Equação da elipse: ((x-xc)/rx)² + ((y-yc)/ry)² = 1
-#     # Resolvendo para x: x = xc ± rx * sqrt(1 - ((y-yc)/ry)²)
-#
-#     for y in range(yc - ry, yc + ry + 1):
-#         # Calcula distância y normalizada
-#         dy = (y - yc) / ry if ry > 0 else 0
-#
-#         # Verifica se está dentro dos limites da elipse
-#         if dy * dy > 1:
-#             continue
-#
-#         # Calcula interseções x
-#         dx = (1 - dy * dy) ** 0.5  # sqrt(1 - dy²)
-#         x_offset = int(rx * dx)
-#
-#         # Preenche scanline de (xc - x_offset) até (xc + x_offset)
-#         x_start = xc - x_offset
-#         x_end = xc + x_offset
-#
-#         for x in range(x_start, x_end + 1):
-#             setPixel(surface, x, y, fill_color)
+    # Equação da elipse: ((x-xc)/rx)² + ((y-yc)/ry)² = 1
+    # Resolvendo para x: x = xc ± rx * sqrt(1 - ((y-yc)/ry)²)
+
+    for y in range(yc - ry, yc + ry + 1):
+        # Calcula distância y normalizada
+        dy = (y - yc) / ry if ry > 0 else 0
+
+        # Verifica se está dentro dos limites da elipse
+        if dy * dy > 1:
+            continue
+
+        # Calcula interseções x
+        dx = (1 - dy * dy) ** 0.5  # sqrt(1 - dy²)
+        x_offset = int(rx * dx)
+
+        # Preenche scanline de (xc - x_offset) até (xc + x_offset)
+        x_start = xc - x_offset
+        x_end = xc + x_offset
+
+        for x in range(x_start, x_end + 1):
+            setPixel(surface, x, y, fill_color)
 
 
 def paintTexturedEllipse(
@@ -569,10 +478,11 @@ def paintTexturedEllipse(
             if color[3] >= 10:
                 pixel_array[x, y] = color
 
+
 def draw_text_raster(pixel_array, font, text, x, y, color):
     """
     Renderiza texto desenhando pixel por pixel.
-    
+
     Args:
         pixel_array: O PixelArray da tela principal (bloqueado).
         font: A fonte pygame carregada.
@@ -583,21 +493,21 @@ def draw_text_raster(pixel_array, font, text, x, y, color):
     # Renderiza o texto numa superfície temporária (na memória, não na tela)
     text_surface = font.render(text, True, color)
     w, h = text_surface.get_width(), text_surface.get_height()
-    
+
     # Obtém dimensões da tela para evitar erro de índice
     screen_w, screen_h = pixel_array.shape
-    
+
     # Itera sobre os pixels da superfície do texto
     for px in range(w):
         for py in range(h):
             # Pega a cor do pixel do texto
             curr_color = text_surface.get_at((px, py))
-            
+
             # Só desenha se não for transparente
             if curr_color.a > 10:
                 draw_x = x + px
                 draw_y = y + py
-                
+
                 # Verifica limites da tela (Clipping)
                 if 0 <= draw_x < screen_w and 0 <= draw_y < screen_h:
                     pixel_array[draw_x, draw_y] = curr_color
@@ -610,13 +520,13 @@ def draw_gradient_rect(pixel_array, x, y, w, h, color_top, color_bottom):
     """
     # Limites da tela (Clipping)
     screen_w, screen_h = pixel_array.shape
-    
+
     # Ajusta coordenadas iniciais e finais
     start_x = max(0, int(x))
     start_y = max(0, int(y))
     end_x = min(screen_w, int(x + w))
     end_y = min(screen_h, int(y + h))
-    
+
     # Altura real do desenho (para cálculo da interpolação)
     draw_height = end_y - start_y
     if draw_height <= 0 or start_x >= end_x:
@@ -646,10 +556,10 @@ def draw_gradient_rect(pixel_array, x, y, w, h, color_top, color_bottom):
     for py in range(start_y, end_y):
         # Converte para inteiro e tupla formato (R,G,B)
         color = (int(curr_r), int(curr_g), int(curr_b))
-        
+
         # Desenha a linha horizontal inteira de uma vez (Rápido!)
         pixel_array[start_x:end_x, py] = color
-        
+
         # Avança a cor para a próxima linha
         curr_r += dr
         curr_g += dg

@@ -6,7 +6,7 @@ import sys
 import pygame
 import math
 import os
-from engine.raster import drawPolygon, paintPolygon, draw_circle, flood_fill_iterativo, paintTexturedPolygon, draw_text_raster, draw_gradient_rect
+from engine.raster import drawPolygon, draw_circle, flood_fill_iterativo, paintTexturedPolygon, draw_text_raster, draw_gradient_rect, paint_ellipse
 from engine.transformations import rotation, scale, multiply_matrices, apply_matrix_to_point
 from game.menu_scene import ClawMachineScene
 from game.model.config import *
@@ -331,7 +331,7 @@ class Menu:
         # Estado do menu
         self.in_difficulty_menu = False
         self.in_guia_menu = False
-        self.current_difficulty = "NORMAL"  # Armazenar dificuldade atual
+        self.current_difficulty = "NORMAL"
         self.difficulty_selector = DifficultySelector(width // 2, height // 2 + 80, self.current_difficulty)
         
         # Layout
@@ -343,26 +343,26 @@ class Menu:
         self.selected_color = COLOR_TEXT_SELECTED
         self.title_color = COLOR_TITLE
         
-        # Font
-        # Carrega a fonte customizada da pasta assets
+        # Fontes
         font_path = _resolve_asset_path("fonts/ThaleahFat.ttf")
+        pixel_font_path = _resolve_asset_path("fonts/PixeloidSans.ttf")
         
-        # Ajuste os tamanhos (Fontes pixel art costumam parecer menores ou maiores)
-        # Font(caminho, tamanho)
-        self.font = pygame.font.Font(font_path, 35)       # Tamanho médio
-        self.title_font = pygame.font.Font(font_path, 55) # Título grande
-        # Se der erro ao carregar (arquivo não existe), usa a padrão como fallback
-        if not self.font:
-            self.font = pygame.font.Font(None, FONT_SIZE_MEDIUM)
-            self.title_font = pygame.font.Font(None, FONT_SIZE_LARGE)
+        self.font = pygame.font.Font(font_path, 35)       
+        self.title_font = pygame.font.Font(font_path, 55)
+        
+        # Fonte específica para a lista de highscores
+        self.small_font = pygame.font.Font(pixel_font_path, 20)
+        
+        # Carrega os highscores
+        self.highscores = self._load_highscores()
         
         # Elementos texturizados nos cantos
         margin = ROTATING_BOX_MARGIN
         self.corner_elements = [
-            TexturedBox(margin, margin, _resolve_asset_path("mocking/gabriel-mocking4.png")),                    # Superior esquerdo
+            TexturedBox(margin, margin, _resolve_asset_path("gabrielzito/mocking/gabriel-mocking4.png")),                    # Superior esquerdo
             TexturedEllipse(width - margin, margin, _resolve_asset_path("ufo.png"), base_rx=40, base_ry=25),     # Superior direito (UFO)
-            TexturedBox(margin, height - margin, _resolve_asset_path("gabriel-frente.png")),                     # Inferior esquerdo
-            TexturedBox(width - margin - 110, height - margin, _resolve_asset_path("gabriel.png"))               # Inferior direito (MOVIDO)
+            TexturedBox(margin, height - margin, _resolve_asset_path("gabrielzito/gabriel-front.png")),     # Inferior esquerdo
+            TexturedBox(width - margin - 110, height - margin, _resolve_asset_path("gabrielzito/gabriel-side.png"))               # Inferior direito (MOVIDO)
         ]
         
         # Círculo alvo no canto inferior direito (posição original)
@@ -482,24 +482,23 @@ class Menu:
     
     def render(self, screen):
         """Renderiza o menu completo"""
-        # 1. Renderizar cenário de fundo
+        # Renderizar cenário de fundo
         self.scene.render(screen)
         
-        # 2. Renderização por pixel (Texto, Polígonos e Gradientes)
+        # Renderização por pixel (Texto, Polígonos e Gradientes)
         # OTIMIZAÇÃO: Um único PixelArray para tudo
         with pygame.PixelArray(screen) as pixel_array:
             screen_width = screen.get_width()
             screen_height = screen.get_height()
 
-            # --- FUNDO DO GUIA (GRADIENTE) ---
-            # Desenhamos antes do texto para ficar no fundo
+            # FUNDO DO GUIA (GRADIENTE)
             if self.in_guia_menu:
                 box_x = 100
                 box_y = 170
                 box_w = self.width - 200
                 box_h = 320
                 
-                # Cores do Gradiente: Azul Cyberpunk -> Preto
+                # Cores do Gradiente: Azul Cyberpunk a Preto
                 color_top = (40, 40, 90)
                 color_bottom = (10, 10, 20)
                 
@@ -515,7 +514,7 @@ class Menu:
                 pixel_array[box_x, box_y:box_y+box_h] = border_color
                 pixel_array[box_x+box_w-1, box_y:box_y+box_h] = border_color
             
-            # --- ELEMENTOS DO MENU ---
+            # ELEMENTOS DO MENU
             # Elementos texturizados nos cantos
             for element in self.corner_elements:
                 element.render(pixel_array, screen_width, screen_height)
@@ -523,23 +522,25 @@ class Menu:
             # Círculo alvo
             self.target_circle.render(pixel_array)
         
-            # Título Principal "GABRIELZITO ABDUCTION"
+            # Título Principal
             title_str = "GABRIELZITO ABDUCTION"
             tw, th = self.title_font.size(title_str)
             tx = (self.width - tw) // 2
             ty = 80 - (th // 2)
             draw_text_raster(pixel_array, self.title_font, title_str, tx, ty, self.title_color)
             
+            if not self.in_guia_menu and not self.in_difficulty_menu:
+                self._render_best_times(pixel_array)
+
             # Renderizar Submenus (Textos)
             if self.in_difficulty_menu:
                 self._render_difficulty_menu(pixel_array)
             elif self.in_guia_menu:
-                # O texto será desenhado AGORA, por cima do gradiente que fizemos acima
                 self._render_guia_menu(pixel_array)
             else:
                 self._render_main_menu(pixel_array)
         
-        # Transição (Tela preta descendo)
+        # Transição
         if self.transitioning:
              with pygame.PixelArray(screen) as px_array:
                 self._render_transition(px_array)
@@ -606,8 +607,8 @@ class Menu:
         description_lines = [
             "Gabrielzito Machine é um jogo arcade 2D inspirado nas clássicas",
             "máquinas de garra, desenvolvido para a disciplina de Computação",
-            "Gráfica. O jogador controla uma garra mecânica dentro da máquina,",
-            "tentando capturar gabrielzitos em movimento.",
+            "Gráfica. O jogador controla um E.T. com uma garra mecânica,",
+            "tentando abduzir gabrielzitos em movimento.",
             "",
             "Controles:",
             "• SETAS: Movimentar a garra (eixos X e Y).",
@@ -615,7 +616,7 @@ class Menu:
             "",
             "Níveis de Dificuldade:",
             "A dificuldade selecionada no menu afeta a velocidade dos gabrielzitos",
-            "e a quantidade de gabrielzitos em movimento dentro da máquina."
+            "e a quantidade de gabrielzitos em movimento."
         ]
         
         for i, line in enumerate(description_lines):
@@ -630,7 +631,7 @@ class Menu:
         Efeito de 'Cortina' (Wipe Down).
         Usa manipulação direta de memória(PixelArray).
         """
-        # Mapeia o progresso (0 a 255) para a altura da tela (0 a Height)
+        # Mapeia o progresso (0 a 255) para a altura da tela (0 a height)
         progress = self.transition_alpha / 255.0
         curtain_height = int(self.height * progress)
         
@@ -640,3 +641,102 @@ class Menu:
             
         if curtain_height > 0:
                 screen[0:self.width, 0:curtain_height] = COLOR_TRANSITION
+
+    def _format_time(self, ms):
+        """Converte milissegundos para mm:ss"""
+        seconds = ms // 1000
+        mins = seconds // 60
+        secs = seconds % 60
+        return f"{mins:02d}:{secs:02d}"
+    
+    def _load_highscores(self):
+        """
+        Lê o arquivo de scores, filtra por dificuldade e retorna os Top 3.
+        Retorna: Dicionário {'HARD': [t1, t2, t3], 'NORMAL': [t1, t2, t3]}
+        """
+        scores = {'NORMAL': [], 'HARD': []}
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        score_path = os.path.join(base_path, "..", "..", "highscores.txt")
+
+        if not os.path.exists(score_path):
+            return scores
+
+        try:
+            with open(score_path, "r") as f:
+                for line in f:
+                    parts = line.strip().split('|')
+                    if len(parts) >= 2:
+                        diff = parts[0]
+                        try:
+                            time_ms = int(parts[1])
+                            if diff in scores:
+                                scores[diff].append(time_ms)
+                        except ValueError:
+                            continue
+            
+            # Ordena (menor tempo é melhor) e pega os top 3
+            scores['NORMAL'] = sorted(scores['NORMAL'])[:3]
+            scores['HARD'] = sorted(scores['HARD'])[:3]
+            
+        except Exception as e:
+            print(f"Erro ao ler highscores: {e}")
+            
+        return scores
+    
+    def _render_best_times(self, pixel_array):
+        """
+        Renderiza a lista de melhores tempos no canto superior direito.
+        Utiliza apenas renderização de texto raster.
+        """
+        start_x = self.width - 200  # Coluna alinhada à direita
+        start_y = 180
+        line_height = 23
+
+        # Desenho da elipse de fundo
+        # Calcula e alinha o tamanho do texto para centralizar a elipse
+        title_text = "BEST TIMES"
+        title_w, title_h = self.small_font.size(title_text)
+        ellipse_cx = start_x + (title_w // 2)
+        ellipse_cy = start_y + (title_h // 2)
+        
+        # Raios da elipse (rx mais largo, ry mais achatado)
+        rx = (title_w // 2) + 15  # Um pouco mais larga que o texto
+        ry = (title_h // 2) + 5   # Um pouco mais alta que o texto
+        
+        # Cor de fundo da elipse (Roxo escuro)
+        color_bg_ellipse = (60, 40, 90) 
+        
+        # Scanline fill
+        paint_ellipse(pixel_array, (ellipse_cx, ellipse_cy), rx, ry, color_bg_ellipse)
+        
+        # Título da Seção
+        draw_text_raster(pixel_array, self.small_font, "BEST TIMES!", start_x, start_y, COLOR_HIGHSCORE)
+        start_y += line_height + 10 # Espaço extra após o título
+
+        # Seção HARD
+        draw_text_raster(pixel_array, self.small_font, "--- HARD ---", start_x, start_y, COLOR_HIGHSCORE)
+        start_y += line_height
+        
+        if not self.highscores['HARD']:
+            draw_text_raster(pixel_array, self.small_font, "---", start_x, start_y, COLOR_TEXT)
+            start_y += line_height
+        else:
+            for i, time_ms in enumerate(self.highscores['HARD']):
+                time_str = f"{i+1}. {self._format_time(time_ms)}"
+                draw_text_raster(pixel_array, self.small_font, time_str, start_x, start_y, COLOR_TEXT)
+                start_y += line_height
+
+        start_y += 10 # Espaço entre categorias
+
+        # Seção NORMAL
+        draw_text_raster(pixel_array, self.small_font, "-- NORMAL --", start_x, start_y, COLOR_HIGHSCORE)
+        start_y += line_height
+        
+        if not self.highscores['NORMAL']:
+            draw_text_raster(pixel_array, self.small_font, "---", start_x, start_y, COLOR_TEXT)
+            start_y += line_height
+        else:
+            for i, time_ms in enumerate(self.highscores['NORMAL']):
+                time_str = f"{i+1}. {self._format_time(time_ms)}"
+                draw_text_raster(pixel_array, self.small_font, time_str, start_x, start_y, COLOR_TEXT)
+                start_y += line_height

@@ -13,6 +13,7 @@ COLOR_TEXT = (200, 200, 200)        # Cor padrão de texto (cinza claro)
 COLOR_TEXT_SELECTED = (100, 255, 100)  # Cor de texto selecionado (verde)
 COLOR_TITLE = (255, 200, 100)       # Cor de títulos (laranja)
 COLOR_INSTRUCTION = (150, 150, 150) # Cor de instruções (cinza médio)
+COLOR_HIGHSCORE = (255, 230, 80) # Amarelo Arcade
 
 # Game Elements - Elementos do jogo
 COLOR_UFO = (180, 180, 255)         # Cor do UFO (azul claro)
