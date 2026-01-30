@@ -169,9 +169,6 @@ Claw-Machine-Arcade-Game/
 ├── highscores.txt                # Persistent highscore storage
 ├── video_demo.mp4                # Game demonstration video
 │
-├── saves/
-│   └── highscores.json           # Structured highscore data
-│
 ├── src/
 │   ├── main.py                       # Entry point - game initialization
 │   │
