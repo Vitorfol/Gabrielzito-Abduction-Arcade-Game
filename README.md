@@ -174,7 +174,7 @@ Claw-Machine-Arcade-Game/
 │   │   ├── clipping_utils.py         # Cohen-Sutherland line clipping
 │   │   └── collision.py              # Collision detection system
 │   │
-│   └── game/                         # 🎮 Claw Machine Game
+│   └── game/                         # Claw Machine Game
 │       ├── game_loop.py              # Main game loop orchestration
 │       ├── menu.py                   # Interactive menu system
 │       ├── menu_scene.py             # Claw machine scene renderer
