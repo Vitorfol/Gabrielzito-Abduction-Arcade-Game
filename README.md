@@ -1,10 +1,23 @@
-# Claw Machine Arcade Game (2D)
+# Gabrielzito Abduction Arcade Game (2D)
 
 ## Overview
 
 This project implements a **2D Arcade Game** initially inspired by a classic **claw machine** and themed after a UFO abduction attempt, developed for the *Computer Graphics* course. The player controls a mechanical claw, attempting to grab(abduct) moving objects while playing under a difficulty level selected at the beginning of the game.
 
 The main goal of the project is to **manually implement core Computer Graphics algorithms**, without relying on high-level graphics libraries, following the academic constraints defined by the course.
+
+---
+
+## Demo Video
+
+Watch the game in action:
+
+<video width="640" height="480" controls>
+  <source src="video_demo.mp4" type="video/mp4">
+  Your browser does not support the video tag. You can download the video <a href="video_demo.mp4">here</a>.
+</video>
+
+*Alternatively, you can [download the video](video_demo.mp4) directly.*
 
 ---
 
@@ -240,18 +253,6 @@ python src/main.py --window
 ```
 
 The game starts in fullscreen by default. Use `--window` flag for windowed mode during development.
-
----
-
-## Demo Video
-
-A demonstration video is available in the project root: [`video_demo.mp4`](video_demo.mp4)
-
----
-
-## Team
-
-Developed by a three-member team as part of the Computer Graphics course.
 
 ---
 

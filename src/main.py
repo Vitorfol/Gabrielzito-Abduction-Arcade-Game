@@ -24,7 +24,7 @@ else:
     flags = pygame.SCALED | pygame.RESIZABLE | pygame.FULLSCREEN
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), flags)
-pygame.display.set_caption("Claw Machine Game")
+pygame.display.set_caption("Gabrielzito Abduction Arcade Game")
 clock = pygame.time.Clock()
 
 play_soundtrack(volume=0.25)
