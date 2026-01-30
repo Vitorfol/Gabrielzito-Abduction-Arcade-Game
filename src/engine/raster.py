@@ -513,31 +513,30 @@ def draw_text_raster(pixel_array, font, text, x, y, color):
                     pixel_array[draw_x, draw_y] = curr_color
 
 
-def draw_gradient_rect(pixel_array, x, y, w, h, color_top, color_bottom):
+def draw_gradient_rect(pixel_array, x, y, w, h, cor_topo, cor_base):
     """
-    Desenha um retângulo com gradiente vertical (Topo -> Base).
-    Otimizado para PixelArray usando slicing horizontal.
+    Versão da Scanline Fill especializada para retângulos verticais com textura gradiente vertical.
+    Entrada: Posição (x,y), Dimensões (w,h) e Cores (Topo/Base).
     """
-    # Limites da tela (Clipping)
     screen_w, screen_h = pixel_array.shape
+    
+    # Otimização Geométrica (Clipping)
+    # Em vez de calcular interseções de arestas,
+    # é feito o clamp dos valores.
+    x_inicio = max(0, int(x))
+    y_inicio = max(0, int(y))
+    x_fim = min(screen_w, int(x + w))
+    y_fim = min(screen_h, int(y + h))
 
-    # Ajusta coordenadas iniciais e finais
-    start_x = max(0, int(x))
-    start_y = max(0, int(y))
-    end_x = min(screen_w, int(x + w))
-    end_y = min(screen_h, int(y + h))
-
-    # Altura real do desenho (para cálculo da interpolação)
-    draw_height = end_y - start_y
-    if draw_height <= 0 or start_x >= end_x:
+    # Se estiver fora da tela, aborta
+    if y_fim <= y_inicio or x_fim <= x_inicio:
         return
 
-    # Desempacota cores
-    r1, g1, b1 = color_top
-    r2, g2, b2 = color_bottom
-
-    # Pré-cálculo dos deltas (diferença de cor por linha)
-    # Evita divisão dentro do loop
+    # Pré-cálculo (Gradiente Vertical)
+    # Calcula quanto a cor muda por linha (step).
+    r1, g1, b1 = cor_topo
+    r2, g2, b2 = cor_base
+    
     if h > 0:
         inv_h = 1.0 / h
         dr = (r2 - r1) * inv_h
@@ -546,21 +545,24 @@ def draw_gradient_rect(pixel_array, x, y, w, h, color_top, color_bottom):
     else:
         dr = dg = db = 0
 
-    # Avança a cor inicial se o topo foi clipado (y < 0)
-    y_skip = start_y - int(y)
-    curr_r = r1 + dr * y_skip
-    curr_g = g1 + dg * y_skip
-    curr_b = b1 + db * y_skip
+    # Ajuste de cor inicial (caso o topo esteja fora da tela)
+    pulo_y = y_inicio - int(y)
+    cur_r = r1 + (dr * pulo_y)
+    cur_g = g1 + (dg * pulo_y)
+    cur_b = b1 + (db * pulo_y)
 
     # Loop Scanline (Vertical)
-    for py in range(start_y, end_y):
-        # Converte para inteiro e tupla formato (R,G,B)
-        color = (int(curr_r), int(curr_g), int(curr_b))
+    # É um retângulo vertical, não precisa interpolar X.
+    # A cor é constante na horizontal.
+    for py in range(y_inicio, y_fim):
+        # Cast para inteiro apenas uma vez por linha
+        cor_linha = (int(cur_r), int(cur_g), int(cur_b))
+        
+        # Slicing
+        pixel_array[x_inicio:x_fim, py] = cor_linha
+        
+        # Avança a cor
+        cur_r += dr
+        cur_g += dg
+        cur_b += db
 
-        # Desenha a linha horizontal inteira de uma vez (Rápido!)
-        pixel_array[start_x:end_x, py] = color
-
-        # Avança a cor para a próxima linha
-        curr_r += dr
-        curr_g += dg
-        curr_b += db

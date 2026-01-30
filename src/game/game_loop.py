@@ -134,7 +134,7 @@ class GameLoop:
                 self.game_over = True
                 self.victory = False
                 self.bg_cache = self.bg_cache_lose
-                play_audio("game-over")
+                play_audio("vai-comendo")
     
     def save_high_score(self):
         """

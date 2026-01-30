@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project implements a **2D Arcade Game** inspired by a classic **claw machine**, developed for the *Computer Graphics* course. The player controls a mechanical claw inside the machine, attempting to grab moving objects while playing under a difficulty level selected at the beginning of the game.
+This project implements a **2D Arcade Game** initially inspired by a classic **claw machine** and themed after a UFO subduction attempt, developed for the *Computer Graphics* course. The player controls a mechanical claw, attempting to grab(abduct) moving objects while playing under a difficulty level selected at the beginning of the game.
 
 The main goal of the project is to **manually implement core Computer Graphics algorithms**, without relying on high-level graphics libraries, following the academic constraints defined by the course.
 
@@ -11,10 +11,10 @@ The main goal of the project is to **manually implement core Computer Graphics a
 ## Game Concept
 
 * The game is viewed from **inside the claw machine**.
-* The claw starts at the **top-center of the screen** and can move freely on the **X and Y axes**.
+* The UFO and claw start at the **top-center of the screen** and can move freely on the **X axis**.
 * Objects move continuously inside the machine.
 * The player controls the claw using the keyboard.
-* When the player presses **SPACE**, the claw closes and a **viewport transformation** is triggered to emphasize the grabbing action.
+* There is a large focus on the arcade style of the game.
 
 ### Difficulty Levels
 
@@ -23,15 +23,47 @@ Difficulty is selected in the **initial menu** and directly affects:
 * Speed of moving objects
 * Number of moving objects inside the machine
 
+The game offers three difficulty levels:
+
+* **EASY**: 1-3 prizes, slower movement (100-150% base speed)
+* **NORMAL**: 3-5 prizes, moderate movement (150-250% base speed)
+* **HARD**: 5-6 prizes, fast movement (250-350% base speed)
+
 The difficulty level remains fixed during gameplay. The player may exit the game at any time by pressing **ESC**, returning to the initial menu.
 
 ---
 
 ## Controls
 
-* **Arrow Keys**: Move the claw (X/Y plane)
+* **Arrow Keys**: Move the claw (X plane)
 * **Space Bar**: Close the claw / attempt to grab an object
 * **Menu Interaction**: Difficulty selection and game control
+
+---
+
+## Game Features
+
+### Highscore System
+
+* Tracks best completion times for each difficulty level
+* Persistent storage in `highscores.txt` and `saves/highscores.json`
+* Display of top times in the main menu
+
+### Audio System
+
+* Background soundtrack with looping music
+* Sound effects for game events:
+  * UFO/claw movement
+  * Successful grab
+  * Game over
+  * Special character voice lines
+
+### Visual Assets
+
+* **Gabrielzito**: The main character/prize to be grabbed
+* Textured sprites for all game entities (claw, UFO, cable)
+* Animated character states (movement, caught, mocking)
+* Retro arcade-style pixel fonts
 
 ---
 
@@ -40,12 +72,15 @@ The difficulty level remains fixed during gameplay. The player may exit the game
 This project strictly follows the course requirements:
 
 * No high-level graphics libraries are used
-* Only low-level pixel operations are allowed (e.g., `setPixel`)
+* Only basic pixel operations are allowed (e.g., `setPixel`)
 * PyGame is used **only** for:
 
   * Window creation
   * Pixel buffer display
   * Input handling
+  * Playing sounds
+  * Loading maps for text
+
 
 All graphical primitives, transformations, and rendering logic are implemented manually.
 
@@ -64,7 +99,7 @@ All graphical primitives, transformations, and rendering logic are implemented m
 * **Flood Fill** (iterative) - [`engine/raster.py`](src/engine/raster.py) - `flood_fill_iterativo()`
   * Used in opening screen circles
 * **Scanline polygon filling** - [`engine/raster.py`](src/engine/raster.py) - `paintPolygon()`
-  * Used for all game objects and environment
+  * Used for most game objects and environment
 
 ### Geometric Transformations
 
@@ -82,7 +117,7 @@ Implemented in [`engine/viewport_utils.py`](src/engine/viewport_utils.py):
 * **World → Window transformation**
 * **Window → Viewport transformation**
 * **Viewport translation**
-* **Viewport scaling (zoom)** - Applied during claw grab action
+* **Viewport scaling (zoom)**
 
 ### Clipping
 
@@ -91,14 +126,14 @@ Implemented in [`engine/viewport_utils.py`](src/engine/viewport_utils.py):
 
 ### Visual Features
 
-* **Per-vertex color gradients** - Implemented in rasterization functions
+* **Color gradients** - Implemented in rasterization functions
 * **Texture mapping** - [`engine/raster.py`](src/engine/raster.py)
   * `paintTexturedPolygon()` - Image-to-matrix texture mapping
   * `paintTexturedEllipse()` - Textured ellipse rendering
 
 ### Animation
 
-* Continuous object motion (prizes moving in machine)
+* Continuous object motion (prizes moving in machine) and reaction system
 * Claw movement and grab animation
 * Menu animations (rotating/pulsing elements)
 
@@ -108,33 +143,31 @@ Implemented in [`engine/viewport_utils.py`](src/engine/viewport_utils.py):
 
 This project explores **performance-aware design choices**, motivated by the computational cost of matrix-based transformations and rasterization algorithms.
 
-### Adopted and Planned Optimizations
+### Adopted Optimizations
 
-* GPU acceleration for matrix and vector operations using **CUDA**
+* Efficient pixel-level operations using PyGame's PixelArray for direct memory access
 * Reduction of redundant transformation calculations
 * Structured rendering pipeline to minimize per-frame overhead
-
-Further optimization details and design decisions are documented in the `design_notes` file and expanded progressively during development.
-
+* Pure Python implementation with optimizations for software rasterization
 ---
 
 ## Repository Structure
 
 ```text
-trabalho1/
+Claw-Machine-Arcade-Game/
 │
 ├── README.md
 ├── requirements.txt
+├── highscores.txt                # Persistent highscore storage
+├── video_demo.mp4                # Game demonstration video
 │
-├── docs/
-│   ├── professor_requirements.txt    # ✅ Course requirements (all implemented)
-│   ├── project_requirements.txt      # Game-specific requirements
-│   └── implementation_draft.md       # Implementation notes
+├── saves/
+│   └── highscores.json           # Structured highscore data
 │
 ├── src/
 │   ├── main.py                       # Entry point - game initialization
 │   │
-│   ├── engine/                       # 🎨 CG Library (graded components)
+│   ├── engine/                       # CG Library
 │   │   ├── raster.py                 # Line/circle/ellipse rasterization, scanline fill
 │   │   ├── transformations.py        # Matrix operations (translate, scale, rotate)
 │   │   ├── viewport_utils.py         # World→Window→Viewport transformations
@@ -150,27 +183,41 @@ trabalho1/
 │       │
 │       └── model/                    # Game model (entities & configuration)
 │           ├── config.py             # Constants (colors, dimensions, etc.)
-│           ├── difficulty.py         # Difficulty system
+│           ├── difficulty.py         # Difficulty system (EASY/NORMAL/HARD)
 │           ├── gamestate_enum.py     # Game state enumeration
 │           ├── world.py              # Game world orchestrator
 │           ├── claw.py               # Claw entity
 │           ├── ufo.py                # UFO entity
 │           ├── cable.py              # Cable entity
-│           └── prize.py              # Prize entities
+│           └── prize.py              # Prize entities (Gabrielzito)
 │
 └── assets/
     ├── audio/                        # Sound effects and music
-    │   └── soundtrack.ogg
-    ├── *.png                         # Game sprites and textures
-    └── mocking/                      # Character animation frames
+    │   ├── soundtrack.ogg            # Background music
+    │   ├── game-over.ogg
+    │   ├── homens-verde.ogg
+    │   ├── me-solta.ogg
+    │   ├── ufo.ogg
+    │   └── vai-comendo.ogg
+    │
+    ├── gabrielzito/                  # Character textures
+    │   ├── caught/                   # Capture animation frames
+    │   ├── mocking/                  # Mocking animation frames
+    │   ├── movement/                 # Movement animation frames
+    │   ├── gabriel-front.png
+    │   └── gabriel-side.png
+    │
+    ├── fonts/                        # Retro fonts
+    │   └── Pixeloid_Font_1_0/
+    │
+    └── *.png                         # Game sprites (claw, UFO, cable, etc.)
 ```
 
 **Architecture Principles:**
 
-* **`engine/`**: Pure Computer Graphics algorithms - reusable, game-agnostic primitives (graded portion)
-* **`game/`**: Claw Machine-specific logic - imports from `engine/` but never vice-versa
-* **`game/model/`**: Game entities, world state, and configuration (MVC model layer)
-* **Clean separation**: Easy for professors to evaluate CG implementation independently
+* **`engine/`**: Pure Computer Graphics algorithms - reusable, game-agnostic primitives
+* **`game/`**: Claw Machine-specific logic - imports from `engine/`
+* **`game/model/`**: Game entities, world state, and configuration
 
 ---
 
@@ -198,9 +245,7 @@ The game starts in fullscreen by default. Use `--window` flag for windowed mode 
 
 ## Demo Video
 
-A demonstration video of the game execution will be provided here:
-
-> *(Link to be added)*
+A demonstration video is available in the project root: [`video_demo.mp4`](video_demo.mp4)
 
 ---
 
