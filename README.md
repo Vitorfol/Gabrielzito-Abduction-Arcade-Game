@@ -12,12 +12,7 @@ The main goal of the project is to **manually implement core Computer Graphics a
 
 Watch the game in action:
 
-<video width="640" height="480" controls>
-  <source src="video_demo.mp4" type="video/mp4">
-  Your browser does not support the video tag. You can download the video <a href="video_demo.mp4">here</a>.
-</video>
-
-*Alternatively, you can [download the video](video_demo.mp4) directly.*
+*You can [download the video](video_demo.mp4) directly.*
 
 ---
 
