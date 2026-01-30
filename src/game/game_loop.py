@@ -76,8 +76,8 @@ class GameLoop:
         self.show_hitbox = True
 
         # Configuração da UI (Inventário)
-        self.inventory_window = (0, 100, 100, 0)        # espaço lógico
-        self.inventory_viewport = (width-80, 20, width, 100)  # 80x80 px
+        self.inventory_window = (0, 80, 80, 0)        # espaço lógico
+        self.inventory_viewport = (360, 15, 440, 95)  # Centralizado no topo, 80x80 px
         self.VW_inventory = viewport_window(
             self.inventory_window,
             self.inventory_viewport
@@ -411,7 +411,18 @@ class GameLoop:
     
     def render_timer(self, screen):
         """Calcula o tempo restante e desenha o display de 7 segmentos."""
-        elapsed = pygame.time.get_ticks() - self.start_time
+        if not hasattr(self, 'final_time'):
+            self.final_time = None
+            
+        if self.game_over and self.final_time is None:
+            # Congela o tempo quando o jogo acaba
+            self.final_time = pygame.time.get_ticks()
+        
+        if self.game_over and self.final_time is not None:
+            elapsed = self.final_time - self.start_time
+        else:
+            elapsed = pygame.time.get_ticks() - self.start_time
+            
         remaining = max(0, self.duration - elapsed)
 
         # Converter para minutos e segundos
