@@ -54,7 +54,7 @@ The difficulty level remains fixed during gameplay. The player may exit the game
 ### Highscore System
 
 * Tracks best completion times for each difficulty level
-* Persistent storage in `highscores.txt` and `saves/highscores.json`
+* Persistent storage in `highscores.txt`
 * Display of top times in the main menu
 
 ### Audio System
